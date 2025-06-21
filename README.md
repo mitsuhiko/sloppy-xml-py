@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/mitsuhiko/sloppy-xml-py/raw/main/logo.svg" alt="" width=320>
+  <img src="https://github.com/mitsuhiko/sloppy-xml-py/raw/main/logo.svg" alt="" width=240>
   <p><strong>A sloppy XML parser for Python designed to handle malformed XML gracefully.</strong></p>
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mitsuhiko/sloppy-xml-py/blob/main/LICENSE)
