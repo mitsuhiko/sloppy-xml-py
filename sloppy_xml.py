@@ -665,121 +665,120 @@ def stream_parse(
 
     def flush_text():
         """Helper to yield accumulated text content."""
-        if text_buffer:
-            content = "".join(text_buffer)
+        if not text_buffer:
+            return
 
-            # Normalize whitespace if enabled
-            if options.normalize_whitespace:
-                content = re.sub(r"\s+", " ", content)
+        content = "".join(text_buffer)
+        text_buffer.clear()
 
-            if options.preserve_whitespace or content.strip():
-                # Check for unescaped special characters (but not those in entity references)
-                if options.recovery_strategy in [
-                    RecoveryStrategy.LENIENT,
-                    RecoveryStrategy.AGGRESSIVE,
-                ]:
-                    # First, find all entity positions to avoid escaping & characters within entities
-                    entity_ranges = []
-                    for entity_match in PATTERNS["entity_ref"].finditer(content):
-                        entity_ranges.append((entity_match.start(), entity_match.end()))
+        # Normalize whitespace if enabled
+        if options.normalize_whitespace:
+            content = re.sub(r"\s+", " ", content)
 
-                    unescaped_matches = []
-                    for match in PATTERNS["unescaped_chars"].finditer(content):
-                        # Check if this character is inside an entity reference
-                        char_pos = match.start()
-                        is_in_entity = any(
-                            start <= char_pos < end for start, end in entity_ranges
-                        )
-                        if not is_in_entity:
-                            unescaped_matches.append(match)
+        # Early return if no text to emit
+        if not (options.preserve_whitespace or content.strip()):
+            return
 
-                    if unescaped_matches:
-                        # Fix unescaped characters
-                        escape_map = {"<": "&lt;", ">": "&gt;", "&": "&amp;"}
-                        fixed_content = content
-                        for match in reversed(
-                            unescaped_matches
-                        ):  # Process from end to maintain positions
-                            char = match.group(0)
-                            if char in escape_map:
-                                fixed_content = (
-                                    fixed_content[: match.start()]
-                                    + escape_map[char]
-                                    + fixed_content[match.end() :]
-                                )
+        # Check for unescaped special characters (but not those in entity references)
+        if options.recovery_strategy in [
+            RecoveryStrategy.LENIENT,
+            RecoveryStrategy.AGGRESSIVE,
+        ]:
+            # First, find all entity positions to avoid escaping & characters within entities
+            entity_ranges = []
+            for entity_match in PATTERNS["entity_ref"].finditer(content):
+                entity_ranges.append((entity_match.start(), entity_match.end()))
 
-                        if fixed_content != content:
-                            yield from emit_error(
-                                "unescaped_chars",
-                                f"Fixed {len(unescaped_matches)} unescaped characters in text",
-                                "escaped special characters",
-                                severity="warning",
-                            )
-                            content = fixed_content
+            unescaped_matches = []
+            for match in PATTERNS["unescaped_chars"].finditer(content):
+                # Check if this character is inside an entity reference
+                char_pos = match.start()
+                is_in_entity = any(
+                    start <= char_pos < end for start, end in entity_ranges
+                )
+                if not is_in_entity:
+                    unescaped_matches.append(match)
 
-                # Process entities in text content
-                if options.resolve_entities:
-                    # Find and resolve entities in text
-                    entity_pos = 0
-                    resolved_parts = []
-                    has_entities = False
-
-                    for entity_match in PATTERNS["entity_ref"].finditer(content):
-                        has_entities = True
-                        # Add text before entity
-                        resolved_parts.append(
-                            content[entity_pos : entity_match.start()]
+            if unescaped_matches:
+                # Fix unescaped characters
+                escape_map = {"<": "&lt;", ">": "&gt;", "&": "&amp;"}
+                fixed_content = content
+                for match in reversed(
+                    unescaped_matches
+                ):  # Process from end to maintain positions
+                    char = match.group(0)
+                    if char in escape_map:
+                        fixed_content = (
+                            fixed_content[: match.start()]
+                            + escape_map[char]
+                            + fixed_content[match.end() :]
                         )
 
-                        # Resolve entity
-                        if entity_match.group(1):  # Named entity
-                            resolved = _resolve_entity(entity_match.group(1), False)
-                        elif entity_match.group(2):  # Decimal numeric
-                            resolved = _resolve_entity(entity_match.group(2), True)
-                        elif entity_match.group(3):  # Hex numeric
-                            resolved = _resolve_entity(
-                                "x" + entity_match.group(3), True
-                            )
-                        else:
-                            resolved = entity_match.group(0)  # Keep original
+                if fixed_content != content:
+                    yield from emit_error(
+                        "unescaped_chars",
+                        f"Fixed {len(unescaped_matches)} unescaped characters in text",
+                        "escaped special characters",
+                        severity="warning",
+                    )
+                    content = fixed_content
 
-                        resolved_parts.append(resolved)
-                        entity_pos = entity_match.end()
+        # Process entities in text content
+        if options.resolve_entities:
+            # Find and resolve entities in text
+            entity_pos = 0
+            resolved_parts = []
+            has_entities = False
 
-                    if has_entities:
-                        # Add remaining text
-                        resolved_parts.append(content[entity_pos:])
-                        content = "".join(resolved_parts)
+            for entity_match in PATTERNS["entity_ref"].finditer(content):
+                has_entities = True
+                # Add text before entity
+                resolved_parts.append(content[entity_pos : entity_match.start()])
 
-                    # Try to fix broken entities if recovery is enabled
-                    if options.recovery_strategy in [
-                        RecoveryStrategy.LENIENT,
-                        RecoveryStrategy.AGGRESSIVE,
-                    ]:
-                        broken_entities = list(
-                            PATTERNS["broken_entity"].finditer(content)
+                # Resolve entity
+                if entity_match.group(1):  # Named entity
+                    resolved = _resolve_entity(entity_match.group(1), False)
+                elif entity_match.group(2):  # Decimal numeric
+                    resolved = _resolve_entity(entity_match.group(2), True)
+                elif entity_match.group(3):  # Hex numeric
+                    resolved = _resolve_entity("x" + entity_match.group(3), True)
+                else:
+                    resolved = entity_match.group(0)  # Keep original
+
+                resolved_parts.append(resolved)
+                entity_pos = entity_match.end()
+
+            if has_entities:
+                # Add remaining text
+                resolved_parts.append(content[entity_pos:])
+                content = "".join(resolved_parts)
+
+            # Try to fix broken entities if recovery is enabled
+            if options.recovery_strategy in [
+                RecoveryStrategy.LENIENT,
+                RecoveryStrategy.AGGRESSIVE,
+            ]:
+                broken_entities = list(PATTERNS["broken_entity"].finditer(content))
+                if broken_entities:
+                    fixed_content = content
+                    for match in reversed(broken_entities):
+                        # Add missing semicolon
+                        fixed_content = (
+                            fixed_content[: match.end()]
+                            + ";"
+                            + fixed_content[match.end() :]
                         )
-                        if broken_entities:
-                            fixed_content = content
-                            for match in reversed(broken_entities):
-                                # Add missing semicolon
-                                fixed_content = (
-                                    fixed_content[: match.end()]
-                                    + ";"
-                                    + fixed_content[match.end() :]
-                                )
 
-                            if fixed_content != content:
-                                yield from emit_error(
-                                    "broken_entity",
-                                    f"Fixed {len(broken_entities)} broken entity references",
-                                    "added missing semicolons",
-                                    severity="warning",
-                                )
-                                content = fixed_content
+                    if fixed_content != content:
+                        yield from emit_error(
+                            "broken_entity",
+                            f"Fixed {len(broken_entities)} broken entity references",
+                            "added missing semicolons",
+                            severity="warning",
+                        )
+                        content = fixed_content
 
-                yield Text(content, line, column, is_cdata=False)
-            text_buffer.clear()
+        yield Text(content, line, column, is_cdata=False)
 
     # Main parsing loop
     while pos < len(text):
@@ -1174,8 +1173,6 @@ def tree_parse(
         else:
             raise ValueError("No valid XML root element found")
     return root
-
-
 
 
 # =============================================================================
