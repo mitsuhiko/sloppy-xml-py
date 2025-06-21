@@ -317,6 +317,80 @@ def test_tree_parse_from_events():
     assert tree[0].text == "text"
 
 
+def test_tree_parameter():
+    """Test the tree parameter for different backend types."""
+    xml = "<root><child>text</child></root>"
+
+    # Test default etree backend
+    tree_etree = sloppy_xml.tree_parse(xml, tree="etree")
+    assert tree_etree.tag == "root"
+    assert tree_etree[0].text == "text"
+
+    # Verify it's an ElementTree element
+    import xml.etree.ElementTree as ET
+
+    assert isinstance(tree_etree, ET.Element)
+
+    # Test lxml backend if available
+    if sloppy_xml.HAS_LXML:
+        tree_lxml = sloppy_xml.tree_parse(xml, tree="lxml")
+        assert tree_lxml.tag == "root"
+        assert tree_lxml[0].text == "text"
+
+        # Verify it's an lxml element
+        from lxml import etree as lxml_etree
+
+        assert isinstance(tree_lxml, lxml_etree._Element)
+
+    # Test with invalid tree backend should raise an error
+    import pytest
+
+    with pytest.raises(KeyError):
+        sloppy_xml.tree_parse(xml, tree="invalid_backend")
+
+    # Test that tree parameter overrides custom tree_builder when both are provided
+    class MockTreeBuilder(TreeBuilder):
+        def __init__(self):
+            self.events = []
+
+        def start_element(self, event):
+            self.events.append(("start", event.name))
+
+        def end_element(self, event):
+            self.events.append(("end", event.name))
+
+        def text(self, event):
+            self.events.append(("text", event.content))
+
+        def comment(self, event):
+            pass
+
+        def processing_instruction(self, event):
+            pass
+
+        def entity_ref(self, event):
+            pass
+
+        def parse_error(self, event):
+            pass
+
+        def get_root(self):
+            return self.events
+
+    # When both tree_builder and tree are provided, tree parameter should be ignored
+    # and custom tree_builder should be used
+    custom_builder = MockTreeBuilder()
+    result = sloppy_xml.tree_parse(xml, tree_builder=custom_builder, tree="etree")
+    # The custom tree builder should be used, not the etree backend
+    assert result == [
+        ("start", "root"),
+        ("start", "child"),
+        ("text", "text"),
+        ("end", "child"),
+        ("end", "root"),
+    ]
+
+
 def test_standard_html_entities():
     """Test resolution of standard HTML entities."""
     xml = "<root>&lt;&gt;&amp;&quot;&apos;</root>"
