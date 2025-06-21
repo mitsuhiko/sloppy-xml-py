@@ -21,6 +21,11 @@ Repository = "https://github.com/yourusername/sloppy-xml-py"
 [tool.setuptools]
 py-modules = ["sloppy_xml"]
 
+[project.optional-dependencies]
+lxml = [
+    "lxml>=4.6.0",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8.3.5",
