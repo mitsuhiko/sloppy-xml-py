@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sloppy-xml-py"
+name = "sloppy-xml"
 version = "0.1.0"
 description = "A sloppy XML parser for Python designed to be used with LLMs"
 authors = [{name = "Armin Ronacher", email = "armin.ronacher@active-4.com"}]
