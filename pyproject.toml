@@ -5,9 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sloppy-xml-py"
 version = "0.1.0"
-description = "A sloppy XML parser for Python"
-authors = [{name = "Your Name", email = "your.email@example.com"}]
-requires-python = ">=3.8"
+description = "A sloppy XML parser for Python designed to be used with LLMs"
+authors = [{name = "Armin Ronacher", email = "armin.ronacher@active-4.com"}]
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -15,8 +15,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/sloppy-xml-py"
-Repository = "https://github.com/yourusername/sloppy-xml-py"
+Homepage = "https://github.com/mitsuhiko/sloppy-xml-py"
+Repository = "https://github.com/mitsuhiko/sloppy-xml-py"
 
 [tool.setuptools]
 py-modules = ["sloppy_xml"]
