@@ -24,7 +24,6 @@ from typing import (
     Pattern,
     TextIO,
     Union,
-    Set,
     Tuple,
 )
 import html.entities
@@ -1512,7 +1511,7 @@ def _handle_incomplete_tag(
     incomplete_match = PATTERNS["incomplete_tag"].match(text, pos)
     if incomplete_match:
         tag_name = incomplete_match.group(1)
-        attr_string = incomplete_match.group(2)
+        incomplete_match.group(2)
 
         if recovery_strategy in [RecoveryStrategy.LENIENT, RecoveryStrategy.AGGRESSIVE]:
             # Try to recover by adding missing >

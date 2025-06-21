@@ -15,10 +15,7 @@ This test suite validates all functionality including:
 
 import pytest
 import io
-import xml.etree.ElementTree as ET
-from typing import List, Iterator, Optional, Dict, Any
 import time
-import sys
 import tempfile
 import os
 
@@ -30,14 +27,11 @@ from sloppy_xml import (
     Text,
     Comment,
     ProcessingInstruction,
-    EntityRef,
     ParseError,
     XMLEvent,
     ParseOptions,
     RecoveryStrategy,
     TreeBuilder,
-    ElementTreeBuilder,
-    HTML_ENTITIES,
 )
 
 
@@ -477,7 +471,7 @@ class TestCDATA:
         text_events = [e for e in events if isinstance(e, Text)]
         assert len(text_events) == 1
         assert text_events[0].content == "some data"
-        assert text_events[0].is_cdata == True
+        assert text_events[0].is_cdata
 
     def test_cdata_with_special_chars(self):
         """Test CDATA with special characters."""
@@ -487,7 +481,7 @@ class TestCDATA:
         text_events = [e for e in events if isinstance(e, Text)]
         assert len(text_events) == 1
         assert text_events[0].content == "<>&\"'"
-        assert text_events[0].is_cdata == True
+        assert text_events[0].is_cdata
 
     def test_cdata_with_xml_content(self):
         """Test CDATA containing XML-like content."""
@@ -497,7 +491,7 @@ class TestCDATA:
         text_events = [e for e in events if isinstance(e, Text)]
         assert len(text_events) == 1
         assert text_events[0].content == "<tag>content</tag>"
-        assert text_events[0].is_cdata == True
+        assert text_events[0].is_cdata
 
 
 class TestErrorRecovery:

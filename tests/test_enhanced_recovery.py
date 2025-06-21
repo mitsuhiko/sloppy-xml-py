@@ -50,7 +50,7 @@ class TestAdvancedRecovery:
         assert len(events) > 0
 
         # Check for error events if available
-        error_events = [e for e in events if hasattr(e, "error_type")]
+        [e for e in events if hasattr(e, "error_type")]
         # Some parsers may not emit error events, that's OK
 
         # Should at least get some element events
@@ -132,7 +132,7 @@ class TestRecoveryStrategies:
             )
 
             events = list(sloppy_xml.stream_parse(malformed, options=opts))
-            error_count = sum(1 for e in events if hasattr(e, "error_type"))
+            sum(1 for e in events if hasattr(e, "error_type"))
             element_count = sum(
                 1 for e in events if type(e).__name__ in ["StartElement", "EndElement"]
             )
