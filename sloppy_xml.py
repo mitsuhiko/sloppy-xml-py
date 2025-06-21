@@ -143,7 +143,7 @@ class RecoveryStrategy(Enum):
 
 
 @dataclass
-class ParseOptions:
+class _ParseOptions:
     """Configuration options for XML parsing."""
 
     recover: bool = True  # Enable error recovery
@@ -482,8 +482,7 @@ if HAS_LXML:
 
 def stream_parse(
     xml_input: Union[str, TextIO],
-    options: Optional[ParseOptions] = None,
-    # Legacy parameters for backward compatibility
+    # Configuration parameters
     encoding: str = "utf-8",
     recover: bool = True,
     emit_errors: bool = False,
@@ -491,6 +490,15 @@ def stream_parse(
     resolve_entities: bool = True,
     namespace_aware: bool = False,
     max_depth: int = 1000,
+    recovery_strategy: RecoveryStrategy = RecoveryStrategy.LENIENT,
+    max_recovery_attempts: int = 10,
+    collect_errors: bool = False,
+    smart_quotes: bool = True,
+    auto_close_tags: bool = True,
+    fix_encoding: bool = True,
+    normalize_whitespace: bool = False,
+    allow_fragments: bool = True,
+    repair_attributes: bool = True,
 ) -> Iterator[XMLEvent]:
     """
     Parse XML input stream and yield parsing events.
@@ -501,14 +509,22 @@ def stream_parse(
 
     Args:
         xml_input: XML string or file-like object to parse
-        options: ParseOptions instance for configuration (preferred)
-        encoding: Text encoding for file input (legacy, default: 'utf-8')
-        recover: Enable error recovery for malformed XML (legacy, default: True)
-        emit_errors: Yield ParseError events for diagnostics (legacy, default: False)
-        preserve_whitespace: Keep all whitespace in text content (legacy, default: False)
-        resolve_entities: Resolve HTML entities to characters (legacy, default: True)
-        namespace_aware: Process XML namespaces (legacy, default: False)
-        max_depth: Maximum nesting depth allowed (legacy, default: 1000)
+        encoding: Text encoding for file input (default: 'utf-8')
+        recover: Enable error recovery for malformed XML (default: True)
+        emit_errors: Yield ParseError events for diagnostics (default: False)
+        preserve_whitespace: Keep all whitespace in text content (default: False)
+        resolve_entities: Resolve HTML entities to characters (default: True)
+        namespace_aware: Process XML namespaces (default: False)
+        max_depth: Maximum nesting depth allowed (default: 1000)
+        recovery_strategy: Recovery approach to use (default: LENIENT)
+        max_recovery_attempts: Maximum recovery attempts per error (default: 10)
+        collect_errors: Collect all errors instead of yielding (default: False)
+        smart_quotes: Enable smart quote matching (default: True)
+        auto_close_tags: Auto-close unclosed tags (default: True)
+        fix_encoding: Attempt encoding error recovery (default: True)
+        normalize_whitespace: Normalize whitespace in text (default: False)
+        allow_fragments: Allow XML fragments without root (default: True)
+        repair_attributes: Repair malformed attributes (default: True)
 
     Yields:
         XMLEvent: Parsing events as named tuples (StartElement, EndElement,
@@ -526,37 +542,28 @@ def stream_parse(
 
         >>> # Handle malformed XML with enhanced recovery
         >>> malformed = '<root><child attr="value with missing quote>text</child></root>'
-        >>> opts = ParseOptions(recovery_strategy=RecoveryStrategy.AGGRESSIVE)
-        >>> events = list(stream_parse(malformed, options=opts))
+        >>> events = list(stream_parse(malformed, recovery_strategy=RecoveryStrategy.AGGRESSIVE))
         >>> # Auto-recovery will fix quotes and close unclosed tags
     """
-    # Merge options with legacy parameters for backward compatibility
-    if options is None:
-        options = ParseOptions(
-            recover=recover,
-            emit_errors=emit_errors,
-            preserve_whitespace=preserve_whitespace,
-            resolve_entities=resolve_entities,
-            namespace_aware=namespace_aware,
-            max_depth=max_depth,
-            encoding=encoding,
-        )
-    else:
-        # Use provided options but allow legacy overrides if they differ from defaults
-        if encoding != "utf-8":
-            options.encoding = encoding
-        if not recover:
-            options.recover = recover
-        if emit_errors:
-            options.emit_errors = emit_errors
-        if preserve_whitespace:
-            options.preserve_whitespace = preserve_whitespace
-        if not resolve_entities:
-            options.resolve_entities = resolve_entities
-        if namespace_aware:
-            options.namespace_aware = namespace_aware
-        if max_depth != 1000:
-            options.max_depth = max_depth
+    # Create internal _ParseOptions from parameters
+    options = _ParseOptions(
+        recover=recover,
+        emit_errors=emit_errors,
+        preserve_whitespace=preserve_whitespace,
+        resolve_entities=resolve_entities,
+        namespace_aware=namespace_aware,
+        max_depth=max_depth,
+        encoding=encoding,
+        recovery_strategy=recovery_strategy,
+        max_recovery_attempts=max_recovery_attempts,
+        collect_errors=collect_errors,
+        smart_quotes=smart_quotes,
+        auto_close_tags=auto_close_tags,
+        fix_encoding=fix_encoding,
+        normalize_whitespace=normalize_whitespace,
+        allow_fragments=allow_fragments,
+        repair_attributes=repair_attributes,
+    )
 
     # Handle input type with encoding fixes if enabled
     if hasattr(xml_input, "read"):
@@ -1069,7 +1076,6 @@ def stream_parse(
 def tree_parse(
     xml_input: Union[str, TextIO, Iterator[XMLEvent]],
     tree_builder: Optional[TreeBuilder] = None,
-    options: Optional[ParseOptions] = None,
     **parse_options,
 ) -> ET.Element:
     """
@@ -1082,8 +1088,7 @@ def tree_parse(
     Args:
         xml_input: XML string, file-like object, or iterator of XMLEvents
         tree_builder: Tree builder instance (defaults to ElementTreeBuilder)
-        options: ParseOptions instance for configuration
-        **parse_options: Additional legacy options passed to stream_parse if needed
+        **parse_options: Options passed to stream_parse if needed
 
     Returns:
         ET.Element: Root element of the constructed XML tree
@@ -1101,8 +1106,7 @@ def tree_parse(
         'text'
 
         >>> # Use enhanced options for fragments
-        >>> opts = ParseOptions(allow_fragments=True)
-        >>> root = tree_parse("text only", options=opts)
+        >>> root = tree_parse("text only", allow_fragments=True)
     """
     # Create default tree builder if none provided
     if tree_builder is None:
@@ -1117,11 +1121,8 @@ def tree_parse(
         # Assume it's an iterator of events
         events = xml_input
     else:
-        # Parse raw XML input (string or file-like object) - pass options properly
-        if options is not None:
-            events = stream_parse(xml_input, options=options, **parse_options)
-        else:
-            events = stream_parse(xml_input, **parse_options)
+        # Parse raw XML input (string or file-like object)
+        events = stream_parse(xml_input, **parse_options)
 
     # Process events through tree builder
     for event in events:
@@ -1143,8 +1144,9 @@ def tree_parse(
     # Return constructed tree root
     root = tree_builder.get_root()
     if root is None:
-        # Check if fragments are allowed
-        if options and options.allow_fragments:
+        # Check if fragments are allowed (default behavior)
+        allow_fragments = parse_options.get("allow_fragments", True)
+        if allow_fragments:
             # Create a synthetic root element for fragments
             from xml.etree.ElementTree import Element
 
@@ -1559,9 +1561,6 @@ def _handle_incomplete_tag(
 __version__ = "0.1.0"
 __author__ = "Generated by Claude Code"
 
-# Default parse options
-DEFAULT_OPTIONS = ParseOptions()
-
 # Build the __all__ list dynamically
 __all__ = [
     # Event types
@@ -1575,7 +1574,6 @@ __all__ = [
     "XMLEvent",
     # Parser states and options
     "ParserState",
-    "ParseOptions",
     "RecoveryStrategy",
     # Tree builder interface
     "TreeBuilder",
@@ -1584,7 +1582,6 @@ __all__ = [
     "stream_parse",
     "tree_parse",
     # Constants
-    "DEFAULT_OPTIONS",
     "HAS_LXML",
 ]
 

@@ -29,7 +29,6 @@ from sloppy_xml import (
     ProcessingInstruction,
     ParseError,
     XMLEvent,
-    ParseOptions,
     RecoveryStrategy,
     TreeBuilder,
 )
@@ -125,15 +124,13 @@ def test_whitespace_handling():
     assert "text" in text_events[0].content
 
     # Preserve all whitespace
-    opts = ParseOptions(preserve_whitespace=True)
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(sloppy_xml.stream_parse(xml, preserve_whitespace=True))
     text_events = [e for e in events if isinstance(e, Text)]
     assert len(text_events) == 1
     assert text_events[0].content == "  \n  text  \n  "
 
     # Normalize whitespace
-    opts = ParseOptions(normalize_whitespace=True)
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(sloppy_xml.stream_parse(xml, normalize_whitespace=True))
     text_events = [e for e in events if isinstance(e, Text)]
     assert len(text_events) == 1
     assert text_events[0].content == " text "
@@ -366,8 +363,7 @@ def test_invalid_entities():
 def test_entity_resolution_disabled():
     """Test disabling entity resolution."""
     xml = "<root>&lt;&amp;</root>"
-    opts = ParseOptions(resolve_entities=False)
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(sloppy_xml.stream_parse(xml, resolve_entities=False))
 
     text_event = [e for e in events if isinstance(e, Text)][0]
     assert "&lt;" in text_event.content
@@ -495,37 +491,36 @@ def test_cdata_with_xml_content():
 def test_unclosed_tags():
     """Test recovery from unclosed tags."""
     xml = "<root><child>text"
-    opts = ParseOptions(recover=True, auto_close_tags=True)
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(sloppy_xml.stream_parse(xml, recover=True, auto_close_tags=True))
 
     # Should auto-close both tags
     end_events = [e for e in events if isinstance(e, EndElement)]
     assert len(end_events) >= 1  # At least the child should be auto-closed
 
     # Build tree to verify structure
-    tree = sloppy_xml.tree_parse(xml, options=opts)
+    tree = sloppy_xml.tree_parse(xml, recover=True, auto_close_tags=True)
     assert tree is not None
 
 
 def test_mismatched_tags():
     """Test recovery from mismatched tags."""
     xml = "<root><child></different></root>"
-    opts = ParseOptions(recover=True, emit_errors=True)
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(sloppy_xml.stream_parse(xml, recover=True, emit_errors=True))
 
     error_events = [e for e in events if isinstance(e, ParseError)]
     assert len(error_events) > 0
 
     # Should still be able to build a tree
-    tree = sloppy_xml.tree_parse(xml, options=opts)
+    tree = sloppy_xml.tree_parse(xml, recover=True, emit_errors=True)
     assert tree is not None
 
 
 def test_malformed_attributes():
     """Test recovery from malformed attributes."""
     xml = '<root attr="missing quote>content</root>'
-    opts = ParseOptions(repair_attributes=True, emit_errors=True)
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(
+        sloppy_xml.stream_parse(xml, repair_attributes=True, emit_errors=True)
+    )
 
     start_events = [e for e in events if isinstance(e, StartElement)]
     assert len(start_events) == 1
@@ -536,8 +531,11 @@ def test_malformed_attributes():
 def test_broken_comments():
     """Test recovery from broken comments."""
     xml = "<!-- broken comment -> <root/>"
-    opts = ParseOptions(recovery_strategy=RecoveryStrategy.AGGRESSIVE, emit_errors=True)
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(
+        sloppy_xml.stream_parse(
+            xml, recovery_strategy=RecoveryStrategy.AGGRESSIVE, emit_errors=True
+        )
+    )
 
     # Should recover and parse both comment and element
     comment_events = [e for e in events if isinstance(e, Comment)]
@@ -550,8 +548,9 @@ def test_broken_comments():
 def test_broken_cdata():
     """Test recovery from broken CDATA."""
     xml = "<root><![CDATA[broken cdata]></root>"
-    opts = ParseOptions(recovery_strategy=RecoveryStrategy.AGGRESSIVE)
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(
+        sloppy_xml.stream_parse(xml, recovery_strategy=RecoveryStrategy.AGGRESSIVE)
+    )
 
     # Should not crash and should produce some events
     assert len(events) > 0
@@ -560,8 +559,9 @@ def test_broken_cdata():
 def test_unescaped_characters():
     """Test recovery from unescaped special characters."""
     xml = "<root>text with < and & characters</root>"
-    opts = ParseOptions(recovery_strategy=RecoveryStrategy.LENIENT)
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(
+        sloppy_xml.stream_parse(xml, recovery_strategy=RecoveryStrategy.LENIENT)
+    )
 
     # Should handle gracefully
     text_events = [e for e in events if isinstance(e, Text)]
@@ -579,8 +579,11 @@ def test_recovery_strategies():
     ]
 
     for strategy in strategies:
-        opts = ParseOptions(recovery_strategy=strategy, emit_errors=True)
-        events = list(sloppy_xml.stream_parse(malformed_xml, options=opts))
+        events = list(
+            sloppy_xml.stream_parse(
+                malformed_xml, recovery_strategy=strategy, emit_errors=True
+            )
+        )
 
         # All strategies should produce some events
         assert len(events) > 0
@@ -651,11 +654,10 @@ def test_deeply_nested_elements():
 
 def test_maximum_nesting_depth():
     """Test maximum nesting depth limit."""
-    opts = ParseOptions(max_depth=10)
     depth = 20
     xml = "".join(f"<level{i}>" for i in range(depth)) + "content"
 
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(sloppy_xml.stream_parse(xml, max_depth=10))
     error_events = [e for e in events if isinstance(e, ParseError)]
 
     # Should hit depth limit and generate error
@@ -699,8 +701,7 @@ def test_xml_declaration():
 def test_basic_namespaces():
     """Test basic namespace-aware parsing."""
     xml = '<root xmlns:ns="http://example.com"><ns:child>content</ns:child></root>'
-    opts = ParseOptions(namespace_aware=True)
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(sloppy_xml.stream_parse(xml, namespace_aware=True))
 
     start_events = [e for e in events if isinstance(e, StartElement)]
     ns_elements = [e for e in start_events if ":" in e.name]
@@ -710,8 +711,7 @@ def test_basic_namespaces():
 def test_default_namespace():
     """Test default namespace handling."""
     xml = '<root xmlns="http://example.com"><child>content</child></root>'
-    opts = ParseOptions(namespace_aware=True)
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(sloppy_xml.stream_parse(xml, namespace_aware=True))
 
     # Should parse without errors
     start_events = [e for e in events if isinstance(e, StartElement)]
@@ -723,8 +723,7 @@ def test_namespace_disabled():
     xml = (
         '<ns:root xmlns:ns="http://example.com"><ns:child>content</ns:child></ns:root>'
     )
-    opts = ParseOptions(namespace_aware=False)  # Default
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(sloppy_xml.stream_parse(xml, namespace_aware=False))  # Default
 
     start_events = [e for e in events if isinstance(e, StartElement)]
     # Should treat ns:root as a regular tag name
@@ -762,9 +761,7 @@ def test_deep_nesting_performance():
     deep_xml = open_tags + "content" + close_tags
 
     start_time = time.time()
-    events = list(
-        sloppy_xml.stream_parse(deep_xml, options=ParseOptions(max_depth=600))
-    )
+    events = list(sloppy_xml.stream_parse(deep_xml, max_depth=600))
     parse_time = time.time() - start_time
 
     # Should complete in reasonable time
@@ -829,18 +826,24 @@ def test_llm_generated_malformed_xml():
         "<root><!-- comment -> more content</root>",
     ]
 
-    opts = ParseOptions(
-        recovery_strategy=RecoveryStrategy.AGGRESSIVE, repair_attributes=True
-    )
-
     for i, xml in enumerate(malformed_examples):
         try:
-            events = list(sloppy_xml.stream_parse(xml, options=opts))
+            events = list(
+                sloppy_xml.stream_parse(
+                    xml,
+                    recovery_strategy=RecoveryStrategy.AGGRESSIVE,
+                    repair_attributes=True,
+                )
+            )
             # Should not crash and should produce some events
             assert len(events) > 0, f"Example {i} produced no events"
 
             # Try to build tree
-            tree = sloppy_xml.tree_parse(xml, options=opts)
+            tree = sloppy_xml.tree_parse(
+                xml,
+                recovery_strategy=RecoveryStrategy.AGGRESSIVE,
+                repair_attributes=True,
+            )
             assert tree is not None, f"Example {i} failed to build tree"
 
         except Exception as e:
@@ -856,18 +859,24 @@ def test_html_like_structures():
         "<div class=test>content</div>",  # unquoted attribute
     ]
 
-    opts = ParseOptions(
-        recovery_strategy=RecoveryStrategy.AGGRESSIVE,
-        repair_attributes=True,
-        auto_close_tags=True,
-    )
-
     for html in html_examples:
-        events = list(sloppy_xml.stream_parse(html, options=opts))
+        events = list(
+            sloppy_xml.stream_parse(
+                html,
+                recovery_strategy=RecoveryStrategy.AGGRESSIVE,
+                repair_attributes=True,
+                auto_close_tags=True,
+            )
+        )
         assert len(events) > 0
 
         # Should be able to build some kind of tree
-        tree = sloppy_xml.tree_parse(html, options=opts)
+        tree = sloppy_xml.tree_parse(
+            html,
+            recovery_strategy=RecoveryStrategy.AGGRESSIVE,
+            repair_attributes=True,
+            auto_close_tags=True,
+        )
         assert tree is not None
 
 
@@ -908,14 +917,15 @@ def test_encoding_issues():
     # Simulate common encoding problems
     xml_with_issues = '<root>Text with em—dash and "smart quotes"</root>'
 
-    opts = ParseOptions(fix_encoding=True, emit_errors=True)
-    events = list(sloppy_xml.stream_parse(xml_with_issues, options=opts))
+    events = list(
+        sloppy_xml.stream_parse(xml_with_issues, fix_encoding=True, emit_errors=True)
+    )
 
     # Should handle without crashing
     assert len(events) > 0
 
     # Should be able to build tree
-    tree = sloppy_xml.tree_parse(xml_with_issues, options=opts)
+    tree = sloppy_xml.tree_parse(xml_with_issues, fix_encoding=True, emit_errors=True)
     assert tree is not None
 
 
@@ -928,15 +938,13 @@ def test_fragment_parsing():
         "Text before <tag>content</tag> text after",
     ]
 
-    opts = ParseOptions(allow_fragments=True)
-
     for fragment in fragments:
-        events = list(sloppy_xml.stream_parse(fragment, options=opts))
+        events = list(sloppy_xml.stream_parse(fragment, allow_fragments=True))
         assert len(events) > 0
 
         # Should be able to handle fragments in tree parsing too
         try:
-            tree = sloppy_xml.tree_parse(fragment, options=opts)
+            tree = sloppy_xml.tree_parse(fragment, allow_fragments=True)
             assert tree is not None
         except ValueError:
             # Some fragments might not produce valid trees, that's ok
@@ -969,11 +977,9 @@ def test_full_pipeline_wellformed():
     assert len(tree) == 2  # title and content
 
     # Test with various options
-    opts = ParseOptions(
-        preserve_whitespace=False, resolve_entities=True, namespace_aware=True
+    tree_with_opts = sloppy_xml.tree_parse(
+        xml, preserve_whitespace=False, resolve_entities=True, namespace_aware=True
     )
-
-    tree_with_opts = sloppy_xml.tree_parse(xml, options=opts)
     assert tree_with_opts.tag == "document"
 
 
@@ -991,19 +997,26 @@ def test_full_pipeline_malformed():
             <content>
         """
 
-    opts = ParseOptions(
+    # Should handle malformed XML gracefully
+    events = list(
+        sloppy_xml.stream_parse(
+            malformed_xml,
+            recovery_strategy=RecoveryStrategy.AGGRESSIVE,
+            emit_errors=True,
+            repair_attributes=True,
+            auto_close_tags=True,
+        )
+    )
+    assert len(events) > 0
+
+    # Should be able to build a tree despite issues
+    tree = sloppy_xml.tree_parse(
+        malformed_xml,
         recovery_strategy=RecoveryStrategy.AGGRESSIVE,
         emit_errors=True,
         repair_attributes=True,
         auto_close_tags=True,
     )
-
-    # Should handle malformed XML gracefully
-    events = list(sloppy_xml.stream_parse(malformed_xml, options=opts))
-    assert len(events) > 0
-
-    # Should be able to build a tree despite issues
-    tree = sloppy_xml.tree_parse(malformed_xml, options=opts)
     assert tree is not None
     assert tree.tag == "document"
 
@@ -1016,13 +1029,14 @@ def test_error_collection():
             </wrong_end>
         </root>"""
 
-    opts = ParseOptions(
-        collect_errors=True,
-        emit_errors=True,
-        recovery_strategy=RecoveryStrategy.LENIENT,
+    events = list(
+        sloppy_xml.stream_parse(
+            malformed_xml,
+            collect_errors=True,
+            emit_errors=True,
+            recovery_strategy=RecoveryStrategy.LENIENT,
+        )
     )
-
-    events = list(sloppy_xml.stream_parse(malformed_xml, options=opts))
 
     # Should have collected errors
     error_events = [e for e in events if isinstance(e, ParseError)]
@@ -1061,17 +1075,18 @@ def test_custom_options_integration():
     xml = '<root attr="value">Text with &amp; entity</root>'
 
     # Test with custom options
-    custom_opts = ParseOptions(
-        recover=True,
-        emit_errors=False,
-        preserve_whitespace=True,
-        resolve_entities=False,  # Keep entities as-is
-        max_depth=500,
-        recovery_strategy=RecoveryStrategy.LENIENT,
-        repair_attributes=False,
-    )
-
-    events = list(sloppy_xml.stream_parse(xml, options=custom_opts))
+    events = list(
+        sloppy_xml.stream_parse(
+            xml,
+            recover=True,
+            emit_errors=False,
+            preserve_whitespace=True,
+            resolve_entities=False,
+            max_depth=500,
+            recovery_strategy=RecoveryStrategy.LENIENT,
+            repair_attributes=False,
+        )
+    )  # Keep entities as-is
 
     # Check that options were respected
     text_events = [e for e in events if isinstance(e, Text)]
@@ -1132,14 +1147,19 @@ def test_sample_xml_fixture(sample_xml):
 
 def test_malformed_xml_fixture(malformed_xml):
     """Test recovery with malformed XML fixture."""
-    opts = ParseOptions(recovery_strategy=RecoveryStrategy.AGGRESSIVE)
-    events = list(sloppy_xml.stream_parse(malformed_xml, options=opts))
+    events = list(
+        sloppy_xml.stream_parse(
+            malformed_xml, recovery_strategy=RecoveryStrategy.AGGRESSIVE
+        )
+    )
 
     # Should still produce events despite malformation
     assert len(events) > 0
 
     # Should be able to build some kind of tree
-    tree = sloppy_xml.tree_parse(malformed_xml, options=opts)
+    tree = sloppy_xml.tree_parse(
+        malformed_xml, recovery_strategy=RecoveryStrategy.AGGRESSIVE
+    )
     assert tree is not None
 
 
@@ -1155,9 +1175,11 @@ def test_malformed_xml_fixture(malformed_xml):
 def test_recovery_strategies_parametrized(recovery_strategy):
     """Test all recovery strategies with parametrized tests."""
     xml = '<root><child attr="broken>text</child>'
-    opts = ParseOptions(recovery_strategy=recovery_strategy, emit_errors=True)
-
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
+    events = list(
+        sloppy_xml.stream_parse(
+            xml, recovery_strategy=recovery_strategy, emit_errors=True
+        )
+    )
     assert len(events) > 0
 
 
@@ -1197,11 +1219,11 @@ def test_entity_resolution_parametrized(entity, expected):
 def test_malformed_attributes_parametrized(malformed_attr):
     """Test various malformed attribute scenarios."""
     xml = f"<root {malformed_attr}>content</root>"
-    opts = ParseOptions(
-        repair_attributes=True, recovery_strategy=RecoveryStrategy.AGGRESSIVE
+    events = list(
+        sloppy_xml.stream_parse(
+            xml, repair_attributes=True, recovery_strategy=RecoveryStrategy.AGGRESSIVE
+        )
     )
-
-    events = list(sloppy_xml.stream_parse(xml, options=opts))
 
     # Should not crash
     assert len(events) > 0

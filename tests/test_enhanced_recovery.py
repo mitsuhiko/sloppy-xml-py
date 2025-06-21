@@ -5,7 +5,7 @@ Test script demonstrating enhanced error recovery features in the sloppy XML par
 
 import pytest
 import sloppy_xml
-from sloppy_xml import ParseOptions, RecoveryStrategy
+from sloppy_xml import RecoveryStrategy
 
 
 def test_basic_recovery():
@@ -33,14 +33,15 @@ def test_advanced_recovery():
             </child>
         """
 
-    opts = ParseOptions(
-        emit_errors=True,
-        recovery_strategy=RecoveryStrategy.AGGRESSIVE,
-        repair_attributes=True,
-        smart_quotes=True,
+    events = list(
+        sloppy_xml.stream_parse(
+            malformed_xml,
+            emit_errors=True,
+            recovery_strategy=RecoveryStrategy.AGGRESSIVE,
+            repair_attributes=True,
+            smart_quotes=True,
+        )
     )
-
-    events = list(sloppy_xml.stream_parse(malformed_xml, options=opts))
     assert len(events) > 0
 
     # Check for error events if available
@@ -59,13 +60,14 @@ def test_encoding_recovery():
     # XML with encoding issues (simulated)
     xml_with_encoding_issues = '<root>Text with em—dash and "smart quotes"</root>'
 
-    opts = ParseOptions(
-        fix_encoding=True,
-        emit_errors=True,
-        recovery_strategy=RecoveryStrategy.LENIENT,
+    events = list(
+        sloppy_xml.stream_parse(
+            xml_with_encoding_issues,
+            fix_encoding=True,
+            emit_errors=True,
+            recovery_strategy=RecoveryStrategy.LENIENT,
+        )
     )
-
-    events = list(sloppy_xml.stream_parse(xml_with_encoding_issues, options=opts))
     assert len(events) > 0
 
     # Should get text events
@@ -78,15 +80,13 @@ def test_fragment_support():
     # Text without root element
     fragment = "Just some text without a root element"
 
-    opts = ParseOptions(allow_fragments=True)
-
-    tree = sloppy_xml.tree_parse(fragment, options=opts)
+    tree = sloppy_xml.tree_parse(fragment, allow_fragments=True)
     assert tree is not None
 
     # Multiple root elements
     multi_root = "<root1>content1</root1><root2>content2</root2>"
 
-    tree = sloppy_xml.tree_parse(multi_root, options=opts)
+    tree = sloppy_xml.tree_parse(multi_root, allow_fragments=True)
     assert tree is not None
 
 
@@ -101,11 +101,14 @@ def test_recovery_strategies():
     ]
 
     for strategy, name in strategies:
-        opts = ParseOptions(
-            recovery_strategy=strategy, emit_errors=True, repair_attributes=True
+        events = list(
+            sloppy_xml.stream_parse(
+                malformed,
+                recovery_strategy=strategy,
+                emit_errors=True,
+                repair_attributes=True,
+            )
         )
-
-        events = list(sloppy_xml.stream_parse(malformed, options=opts))
         sum(1 for e in events if hasattr(e, "error_type"))
         element_count = sum(
             1 for e in events if type(e).__name__ in ["StartElement", "EndElement"]
