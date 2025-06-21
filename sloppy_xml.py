@@ -15,7 +15,18 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Dict, Iterator, List, Optional, Pattern, TextIO, Union, Set, Tuple
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Pattern,
+    TextIO,
+    Union,
+    Set,
+    Tuple,
+)
 import html.entities
 
 
@@ -23,113 +34,146 @@ import html.entities
 # Event Type Definitions
 # =============================================================================
 
-StartElement = namedtuple('StartElement', [
-    'name',        # str: tag name
-    'attrs',       # Dict[str, str]: attributes dictionary
-    'line',        # int: line number in source
-    'column',      # int: column number in source
-    'namespace'    # Optional[str]: namespace URI if applicable
-])
+StartElement = namedtuple(
+    "StartElement",
+    [
+        "name",  # str: tag name
+        "attrs",  # Dict[str, str]: attributes dictionary
+        "line",  # int: line number in source
+        "column",  # int: column number in source
+        "namespace",  # Optional[str]: namespace URI if applicable
+    ],
+)
 
-EndElement = namedtuple('EndElement', [
-    'name',        # str: tag name
-    'line',        # int: line number in source
-    'column',      # int: column number in source
-    'auto_closed'  # bool: True if auto-closed due to malformed XML
-])
+EndElement = namedtuple(
+    "EndElement",
+    [
+        "name",  # str: tag name
+        "line",  # int: line number in source
+        "column",  # int: column number in source
+        "auto_closed",  # bool: True if auto-closed due to malformed XML
+    ],
+)
 
-Text = namedtuple('Text', [
-    'content',     # str: text content
-    'line',        # int: line number in source
-    'column',      # int: column number in source
-    'is_cdata'     # bool: True if content was in CDATA section
-])
+Text = namedtuple(
+    "Text",
+    [
+        "content",  # str: text content
+        "line",  # int: line number in source
+        "column",  # int: column number in source
+        "is_cdata",  # bool: True if content was in CDATA section
+    ],
+)
 
-Comment = namedtuple('Comment', [
-    'content',     # str: comment text
-    'line',        # int: line number in source
-    'column'       # int: column number in source
-])
+Comment = namedtuple(
+    "Comment",
+    [
+        "content",  # str: comment text
+        "line",  # int: line number in source
+        "column",  # int: column number in source
+    ],
+)
 
-ProcessingInstruction = namedtuple('ProcessingInstruction', [
-    'target',      # str: PI target
-    'data',        # Optional[str]: PI data
-    'line',        # int: line number in source
-    'column'       # int: column number in source
-])
+ProcessingInstruction = namedtuple(
+    "ProcessingInstruction",
+    [
+        "target",  # str: PI target
+        "data",  # Optional[str]: PI data
+        "line",  # int: line number in source
+        "column",  # int: column number in source
+    ],
+)
 
-EntityRef = namedtuple('EntityRef', [
-    'name',        # str: entity name (e.g., 'amp', 'lt')
-    'resolved',    # str: resolved value (e.g., '&', '<')
-    'line',        # int: line number in source
-    'column'       # int: column number in source
-])
+EntityRef = namedtuple(
+    "EntityRef",
+    [
+        "name",  # str: entity name (e.g., 'amp', 'lt')
+        "resolved",  # str: resolved value (e.g., '&', '<')
+        "line",  # int: line number in source
+        "column",  # int: column number in source
+    ],
+)
 
-ParseError = namedtuple('ParseError', [
-    'error_type',  # str: error category
-    'message',     # str: human-readable error description
-    'line',        # int: line number where error occurred
-    'column',      # int: column number where error occurred
-    'recovery',    # str: description of recovery action taken
-    'fatal',       # bool: True if parsing cannot continue
-    'context',     # str: surrounding text for context
-    'severity'     # str: error severity level (warning, error, critical)
-])
+ParseError = namedtuple(
+    "ParseError",
+    [
+        "error_type",  # str: error category
+        "message",  # str: human-readable error description
+        "line",  # int: line number where error occurred
+        "column",  # int: column number where error occurred
+        "recovery",  # str: description of recovery action taken
+        "fatal",  # bool: True if parsing cannot continue
+        "context",  # str: surrounding text for context
+        "severity",  # str: error severity level (warning, error, critical)
+    ],
+)
 
 # Type alias for all possible XML events
-XMLEvent = Union[StartElement, EndElement, Text, Comment, 
-                ProcessingInstruction, EntityRef, ParseError]
+XMLEvent = Union[
+    StartElement,
+    EndElement,
+    Text,
+    Comment,
+    ProcessingInstruction,
+    EntityRef,
+    ParseError,
+]
 
 
 # =============================================================================
 # Parser State Machine
 # =============================================================================
 
+
 class ParserState(Enum):
     """States for the XML parser state machine."""
-    INITIAL = auto()           # Looking for next XML construct
-    IN_TAG = auto()           # Processing tag content and attributes  
-    IN_TEXT = auto()          # Accumulating text content
-    IN_COMMENT = auto()       # Processing comment content
-    IN_CDATA = auto()         # Processing CDATA section
-    IN_PI = auto()            # Processing processing instruction
-    ERROR_RECOVERY = auto()   # Attempting to recover from malformed XML
-    COMPLETE = auto()         # End of input reached
-    IN_ATTRIBUTE = auto()     # Processing attribute values
-    IN_QUOTE_RECOVERY = auto() # Recovering from quote mismatches
+
+    INITIAL = auto()  # Looking for next XML construct
+    IN_TAG = auto()  # Processing tag content and attributes
+    IN_TEXT = auto()  # Accumulating text content
+    IN_COMMENT = auto()  # Processing comment content
+    IN_CDATA = auto()  # Processing CDATA section
+    IN_PI = auto()  # Processing processing instruction
+    ERROR_RECOVERY = auto()  # Attempting to recover from malformed XML
+    COMPLETE = auto()  # End of input reached
+    IN_ATTRIBUTE = auto()  # Processing attribute values
+    IN_QUOTE_RECOVERY = auto()  # Recovering from quote mismatches
 
 
 class RecoveryStrategy(Enum):
     """Different recovery strategies for malformed XML."""
-    STRICT = auto()      # Minimal recovery, fail on most errors
-    LENIENT = auto()     # Moderate recovery, fix common issues
+
+    STRICT = auto()  # Minimal recovery, fail on most errors
+    LENIENT = auto()  # Moderate recovery, fix common issues
     AGGRESSIVE = auto()  # Maximum recovery, fix everything possible
-    CUSTOM = auto()      # User-defined recovery rules
+    CUSTOM = auto()  # User-defined recovery rules
 
 
 # =============================================================================
 # Configuration
 # =============================================================================
 
+
 @dataclass
 class ParseOptions:
     """Configuration options for XML parsing."""
-    recover: bool = True              # Enable error recovery
-    emit_errors: bool = False         # Yield ParseError events
-    preserve_whitespace: bool = False # Keep all whitespace
-    resolve_entities: bool = True     # Resolve HTML entities
-    namespace_aware: bool = False     # Process XML namespaces
-    max_depth: int = 1000            # Maximum nesting depth
-    encoding: str = 'utf-8'          # Input encoding
+
+    recover: bool = True  # Enable error recovery
+    emit_errors: bool = False  # Yield ParseError events
+    preserve_whitespace: bool = False  # Keep all whitespace
+    resolve_entities: bool = True  # Resolve HTML entities
+    namespace_aware: bool = False  # Process XML namespaces
+    max_depth: int = 1000  # Maximum nesting depth
+    encoding: str = "utf-8"  # Input encoding
     recovery_strategy: RecoveryStrategy = RecoveryStrategy.LENIENT  # Recovery approach
-    max_recovery_attempts: int = 10   # Maximum recovery attempts per error
-    collect_errors: bool = False      # Collect all errors instead of yielding
-    smart_quotes: bool = True         # Enable smart quote matching
-    auto_close_tags: bool = True     # Auto-close unclosed tags
-    fix_encoding: bool = True        # Attempt encoding error recovery
-    normalize_whitespace: bool = False # Normalize whitespace in text
-    allow_fragments: bool = True     # Allow XML fragments without root
-    repair_attributes: bool = True   # Repair malformed attributes
+    max_recovery_attempts: int = 10  # Maximum recovery attempts per error
+    collect_errors: bool = False  # Collect all errors instead of yielding
+    smart_quotes: bool = True  # Enable smart quote matching
+    auto_close_tags: bool = True  # Auto-close unclosed tags
+    fix_encoding: bool = True  # Attempt encoding error recovery
+    normalize_whitespace: bool = False  # Normalize whitespace in text
+    allow_fragments: bool = True  # Allow XML fragments without root
+    repair_attributes: bool = True  # Repair malformed attributes
 
 
 # =============================================================================
@@ -142,94 +186,52 @@ FLAGS = re.MULTILINE | re.DOTALL
 # Core XML constructs - pre-compiled for performance
 PATTERNS: Dict[str, Pattern[str]] = {
     # Tag patterns - handle both well-formed and malformed tags
-    'start_tag': re.compile(
-        r'<\s*([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*([^>]*?)(/?)>', 
-        FLAGS
-    ),
-    
+    "start_tag": re.compile(r"<\s*([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*([^>]*?)(/?)>", FLAGS),
     # Enhanced end tag pattern that handles malformed closing tags
-    'end_tag': re.compile(
-        r'</\s*([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*>', 
-        FLAGS
-    ),
-    
+    "end_tag": re.compile(r"</\s*([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*>", FLAGS),
     # More robust incomplete tag detection
-    'incomplete_tag': re.compile(
-        r'<\s*([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*([^>]*?)$',
-        FLAGS
+    "incomplete_tag": re.compile(
+        r"<\s*([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*([^>]*?)$", FLAGS
     ),
-    
     # Enhanced attribute parsing - handles malformed quotes and values
-    'attributes': re.compile(
+    "attributes": re.compile(
         r'([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*(?:=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+)))?',
-        FLAGS
+        FLAGS,
     ),
-    
     # Malformed attribute patterns for recovery
-    'malformed_attr': re.compile(
-        r'([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*=\s*([^"\'>\s][^>\s]*)',
-        FLAGS
+    "malformed_attr": re.compile(
+        r'([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*=\s*([^"\'>\s][^>\s]*)', FLAGS
     ),
-    
     # Mismatched quote patterns
-    'mixed_quotes': re.compile(
-        r'([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*=\s*(?:"([^"]*?)\'|\'([^\']*?)")',
-        FLAGS
+    "mixed_quotes": re.compile(
+        r'([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*=\s*(?:"([^"]*?)\'|\'([^\']*?)")', FLAGS
     ),
-    
     # Enhanced entity patterns - handles malformed entities
-    'entity_ref': re.compile(
-        r'&(?:([a-zA-Z][a-zA-Z0-9]*)|#(?:([0-9]+)|x([0-9a-fA-F]+)));?',
-        FLAGS
+    "entity_ref": re.compile(
+        r"&(?:([a-zA-Z][a-zA-Z0-9]*)|#(?:([0-9]+)|x([0-9a-fA-F]+)));?", FLAGS
     ),
-    
     # Malformed entity recovery
-    'broken_entity': re.compile(
-        r'&([a-zA-Z][a-zA-Z0-9]*|#(?:[0-9]+|x[0-9a-fA-F]+))(?![;a-zA-Z0-9])',
-        FLAGS
+    "broken_entity": re.compile(
+        r"&([a-zA-Z][a-zA-Z0-9]*|#(?:[0-9]+|x[0-9a-fA-F]+))(?![;a-zA-Z0-9])", FLAGS
     ),
-    
     # Enhanced comment patterns - handles various malformed comments
-    'comment': re.compile(
-        r'<!--(.*?)-->',
-        FLAGS
-    ),
-    
+    "comment": re.compile(r"<!--(.*?)-->", FLAGS),
     # Malformed comment patterns
-    'broken_comment': re.compile(
-        r'<!--([^>]*?)(?:->|>|$)',
-        FLAGS
-    ),
-    
+    "broken_comment": re.compile(r"<!--([^>]*?)(?:->|>|$)", FLAGS),
     # Enhanced CDATA patterns - graceful fallback for malformed
-    'cdata': re.compile(
-        r'<!\[CDATA\[(.*?)(?:\]\]>|$)',
-        FLAGS
-    ),
-    
+    "cdata": re.compile(r"<!\[CDATA\[(.*?)(?:\]\]>|$)", FLAGS),
     # Malformed CDATA recovery
-    'broken_cdata': re.compile(
-        r'<!\[CDATA\[(.*?)(?:\]>|>|$)',
-        FLAGS
-    ),
-    
+    "broken_cdata": re.compile(r"<!\[CDATA\[(.*?)(?:\]>|>|$)", FLAGS),
     # Enhanced processing instruction
-    'pi': re.compile(
-        r'<\?([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*(.*?)(?:\?>|>|$)',
-        FLAGS
-    ),
-    
+    "pi": re.compile(r"<\?([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*(.*?)(?:\?>|>|$)", FLAGS),
     # Whitespace handling
-    'whitespace': re.compile(r'\s+', FLAGS),
-    
+    "whitespace": re.compile(r"\s+", FLAGS),
     # Text content between tags - enhanced to handle special chars
-    'text_content': re.compile(r'[^<&]+', FLAGS),
-    
+    "text_content": re.compile(r"[^<&]+", FLAGS),
     # Unescaped special character detection
-    'unescaped_chars': re.compile(r'[<>&]', FLAGS),
-    
+    "unescaped_chars": re.compile(r"[<>&]", FLAGS),
     # Common encoding issues
-    'encoding_issues': re.compile(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]', FLAGS)
+    "encoding_issues": re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]", FLAGS),
 }
 
 # Use Python's standard HTML5 entity mappings
@@ -240,44 +242,45 @@ HTML_ENTITIES = html.entities.html5
 # Tree Builder Interface
 # =============================================================================
 
+
 class TreeBuilder(ABC):
     """Abstract base class for XML tree builders."""
-    
+
     @abstractmethod
     def start_element(self, event: StartElement) -> None:
         """Process start element event."""
         pass
-    
+
     @abstractmethod
     def end_element(self, event: EndElement) -> None:
         """Process end element event."""
         pass
-    
+
     @abstractmethod
     def text(self, event: Text) -> None:
         """Process text content event."""
         pass
-    
+
     @abstractmethod
     def comment(self, event: Comment) -> None:
         """Process comment event."""
         pass
-    
+
     @abstractmethod
     def processing_instruction(self, event: ProcessingInstruction) -> None:
         """Process processing instruction event."""
         pass
-    
+
     @abstractmethod
     def entity_ref(self, event: EntityRef) -> None:
         """Process entity reference event."""
         pass
-    
+
     @abstractmethod
     def parse_error(self, event: ParseError) -> None:
         """Process parse error event."""
         pass
-    
+
     @abstractmethod
     def get_root(self) -> Any:
         """Return the constructed tree root."""
@@ -286,21 +289,21 @@ class TreeBuilder(ABC):
 
 class ElementTreeBuilder(TreeBuilder):
     """ElementTree-based tree builder implementation."""
-    
+
     def __init__(self):
         """Initialize the ElementTree builder."""
         self.root: Optional[ET.Element] = None
         self.element_stack: List[ET.Element] = []
         self.current_text: List[str] = []
-    
+
     def start_element(self, event: StartElement) -> None:
         """Create new element and add to tree."""
         # Flush any accumulated text to the current element
         self._flush_text()
-        
+
         # Create new element with attributes
         element = ET.Element(event.name, event.attrs)
-        
+
         # Set as root if this is the first element
         if self.root is None:
             self.root = element
@@ -309,55 +312,55 @@ class ElementTreeBuilder(TreeBuilder):
             if self.element_stack:
                 parent = self.element_stack[-1]
                 parent.append(element)
-        
+
         # Push element onto stack to track hierarchy
         self.element_stack.append(element)
-    
+
     def end_element(self, event: EndElement) -> None:
         """Close current element."""
         # Flush any accumulated text to the current element
         self._flush_text()
-        
+
         # Pop element from stack if not empty
         if self.element_stack:
             self.element_stack.pop()
-        
+
         # Note: auto_closed flag is available in event.auto_closed
         # but ElementTree doesn't need special handling for auto-closed tags
-    
+
     def text(self, event: Text) -> None:
         """Accumulate text content."""
         # Add text content to buffer for later flushing
         # CDATA sections are treated as regular text in ElementTree
         self.current_text.append(event.content)
-    
+
     def comment(self, event: Comment) -> None:
         """Process comment event."""
         # Flush any accumulated text first
         self._flush_text()
-        
+
         # ElementTree doesn't preserve comments in the tree by default
         # Comments are ignored in the standard ElementTree implementation
         # If comment preservation is needed, could be implemented with
         # custom Comment nodes or processing instructions
         pass
-    
+
     def processing_instruction(self, event: ProcessingInstruction) -> None:
         """Process processing instruction event."""
         # Flush any accumulated text first
         self._flush_text()
-        
+
         # ElementTree doesn't preserve PIs in the tree by default
         # Processing instructions are typically handled during parsing
         # but not stored in the tree structure
         pass
-    
+
     def entity_ref(self, event: EntityRef) -> None:
         """Process entity reference event."""
         # Add resolved entity text to the current text buffer
         # The entity should already be resolved in the event
         self.current_text.append(event.resolved)
-    
+
     def parse_error(self, event: ParseError) -> None:
         """Process parse error event."""
         # For now, we'll silently handle parse errors
@@ -365,33 +368,33 @@ class ElementTreeBuilder(TreeBuilder):
         # - Log the error
         # - Collect errors for later reporting
         # - Raise an exception for fatal errors
-        
+
         if event.fatal:
             # For fatal errors, we might want to raise an exception
             # but for robustness, we'll continue processing
             pass
-        
+
         # Non-fatal errors are handled through recovery in the parser
         pass
-    
+
     def get_root(self) -> Optional[ET.Element]:
         """Return the constructed tree root."""
         # Flush any remaining accumulated text
         self._flush_text()
-        
+
         # Return the root element
         return self.root
-    
+
     def _flush_text(self) -> None:
         """Add accumulated text to current element or previous sibling's tail."""
         if not self.current_text:
             # Clear buffer even if nothing to flush
             self.current_text.clear()
             return
-        
+
         # Join accumulated text
-        text_content = ''.join(self.current_text)
-        
+        text_content = "".join(self.current_text)
+
         # Only add non-empty text
         if text_content:
             if not self.element_stack:
@@ -399,7 +402,7 @@ class ElementTreeBuilder(TreeBuilder):
                 pass
             else:
                 current_element = self.element_stack[-1]
-                
+
                 # Check if this text should go to the current element's text
                 # or to a previous sibling's tail
                 if len(current_element) == 0:
@@ -415,7 +418,7 @@ class ElementTreeBuilder(TreeBuilder):
                         last_child.tail = text_content
                     else:
                         last_child.tail += text_content
-        
+
         # Clear the text buffer
         self.current_text.clear()
 
@@ -424,25 +427,26 @@ class ElementTreeBuilder(TreeBuilder):
 # Core Parsing Functions
 # =============================================================================
 
+
 def stream_parse(
-    xml_input: Union[str, TextIO], 
+    xml_input: Union[str, TextIO],
     options: Optional[ParseOptions] = None,
     # Legacy parameters for backward compatibility
-    encoding: str = 'utf-8',
+    encoding: str = "utf-8",
     recover: bool = True,
     emit_errors: bool = False,
     preserve_whitespace: bool = False,
     resolve_entities: bool = True,
     namespace_aware: bool = False,
-    max_depth: int = 1000
+    max_depth: int = 1000,
 ) -> Iterator[XMLEvent]:
     """
     Parse XML input stream and yield parsing events.
-    
+
     This function provides streaming XML parsing with robust error recovery
     for handling malformed XML. It yields events as named tuples representing
     different XML constructs (elements, text, comments, etc.).
-    
+
     Args:
         xml_input: XML string or file-like object to parse
         options: ParseOptions instance for configuration (preferred)
@@ -453,21 +457,21 @@ def stream_parse(
         resolve_entities: Resolve HTML entities to characters (legacy, default: True)
         namespace_aware: Process XML namespaces (legacy, default: False)
         max_depth: Maximum nesting depth allowed (legacy, default: 1000)
-        
+
     Yields:
-        XMLEvent: Parsing events as named tuples (StartElement, EndElement, 
+        XMLEvent: Parsing events as named tuples (StartElement, EndElement,
                  Text, Comment, ProcessingInstruction, EntityRef, ParseError)
-    
+
     Raises:
         ValueError: If input is invalid or max_depth is exceeded
         UnicodeDecodeError: If encoding is incorrect for file input
-        
+
     Examples:
         >>> xml = "<root><child>text</child></root>"
         >>> events = list(stream_parse(xml))
         >>> len(events)
         4
-        
+
         >>> # Handle malformed XML with enhanced recovery
         >>> malformed = '<root><child attr="value with missing quote>text</child></root>'
         >>> opts = ParseOptions(recovery_strategy=RecoveryStrategy.AGGRESSIVE)
@@ -483,11 +487,11 @@ def stream_parse(
             resolve_entities=resolve_entities,
             namespace_aware=namespace_aware,
             max_depth=max_depth,
-            encoding=encoding
+            encoding=encoding,
         )
     else:
         # Use provided options but allow legacy overrides if they differ from defaults
-        if encoding != 'utf-8':
+        if encoding != "utf-8":
             options.encoding = encoding
         if not recover:
             options.recover = recover
@@ -503,7 +507,7 @@ def stream_parse(
             options.max_depth = max_depth
 
     # Handle input type with encoding fixes if enabled
-    if hasattr(xml_input, 'read'):
+    if hasattr(xml_input, "read"):
         # File-like object
         try:
             text = xml_input.read()
@@ -512,22 +516,32 @@ def stream_parse(
         except UnicodeDecodeError as e:
             if options.fix_encoding:
                 # Try common encodings
-                for fallback_encoding in ['latin1', 'cp1252', 'ascii']:
+                for fallback_encoding in ["latin1", "cp1252", "ascii"]:
                     try:
                         text = xml_input.read().decode(fallback_encoding)
                         break
                     except (UnicodeDecodeError, AttributeError):
                         continue
                 else:
-                    raise UnicodeDecodeError(e.encoding, e.object, e.start, e.end, 
-                                           f"Unable to decode input with {options.encoding} encoding")
+                    raise UnicodeDecodeError(
+                        e.encoding,
+                        e.object,
+                        e.start,
+                        e.end,
+                        f"Unable to decode input with {options.encoding} encoding",
+                    )
             else:
-                raise UnicodeDecodeError(e.encoding, e.object, e.start, e.end, 
-                                       f"Unable to decode input with {options.encoding} encoding")
+                raise UnicodeDecodeError(
+                    e.encoding,
+                    e.object,
+                    e.start,
+                    e.end,
+                    f"Unable to decode input with {options.encoding} encoding",
+                )
     else:
         # String input
         text = str(xml_input)
-    
+
     # Apply encoding fixes if enabled
     if options.fix_encoding:
         original_text = text
@@ -535,10 +549,17 @@ def stream_parse(
         if encoding_fixes and options.emit_errors:
             for fix in encoding_fixes:
                 yield _create_error_with_context(
-                    "encoding_fix", fix, 1, 1, original_text, 0,
-                    recovery=fix, fatal=False, severity="warning"
+                    "encoding_fix",
+                    fix,
+                    1,
+                    1,
+                    original_text,
+                    0,
+                    recovery=fix,
+                    fatal=False,
+                    severity="warning",
                 )
-    
+
     # Initialize parser state
     state = ParserState.INITIAL
     pos = 0
@@ -549,291 +570,374 @@ def stream_parse(
     error_count = 0
     recovery_attempts = 0
     collected_errors = []
-    
-    def emit_error(error_type: str, message: str, recovery: str = "", fatal: bool = False, severity: str = "error"):
+
+    def emit_error(
+        error_type: str,
+        message: str,
+        recovery: str = "",
+        fatal: bool = False,
+        severity: str = "error",
+    ):
         """Helper to emit parse errors if enabled."""
         nonlocal error_count, collected_errors
         error_count += 1
-        
+
         error = _create_error_with_context(
-            error_type, message, line, column, text, pos,
-            recovery, fatal, severity
+            error_type, message, line, column, text, pos, recovery, fatal, severity
         )
-        
+
         if options.collect_errors:
             collected_errors.append(error)
         elif options.emit_errors:
             yield error
-    
+
     def flush_text():
         """Helper to yield accumulated text content."""
         if text_buffer:
-            content = ''.join(text_buffer)
-            
+            content = "".join(text_buffer)
+
             # Normalize whitespace if enabled
             if options.normalize_whitespace:
-                content = re.sub(r'\s+', ' ', content)
-            
+                content = re.sub(r"\s+", " ", content)
+
             if options.preserve_whitespace or content.strip():
                 # Check for unescaped special characters (but not those in entity references)
-                if options.recovery_strategy in [RecoveryStrategy.LENIENT, RecoveryStrategy.AGGRESSIVE]:
+                if options.recovery_strategy in [
+                    RecoveryStrategy.LENIENT,
+                    RecoveryStrategy.AGGRESSIVE,
+                ]:
                     # First, find all entity positions to avoid escaping & characters within entities
                     entity_ranges = []
-                    for entity_match in PATTERNS['entity_ref'].finditer(content):
+                    for entity_match in PATTERNS["entity_ref"].finditer(content):
                         entity_ranges.append((entity_match.start(), entity_match.end()))
-                    
+
                     unescaped_matches = []
-                    for match in PATTERNS['unescaped_chars'].finditer(content):
+                    for match in PATTERNS["unescaped_chars"].finditer(content):
                         # Check if this character is inside an entity reference
                         char_pos = match.start()
-                        is_in_entity = any(start <= char_pos < end for start, end in entity_ranges)
+                        is_in_entity = any(
+                            start <= char_pos < end for start, end in entity_ranges
+                        )
                         if not is_in_entity:
                             unescaped_matches.append(match)
-                    
+
                     if unescaped_matches:
                         # Fix unescaped characters
-                        escape_map = {'<': '&lt;', '>': '&gt;', '&': '&amp;'}
+                        escape_map = {"<": "&lt;", ">": "&gt;", "&": "&amp;"}
                         fixed_content = content
-                        for match in reversed(unescaped_matches):  # Process from end to maintain positions
+                        for match in reversed(
+                            unescaped_matches
+                        ):  # Process from end to maintain positions
                             char = match.group(0)
                             if char in escape_map:
-                                fixed_content = (fixed_content[:match.start()] + 
-                                               escape_map[char] + 
-                                               fixed_content[match.end():])
-                        
+                                fixed_content = (
+                                    fixed_content[: match.start()]
+                                    + escape_map[char]
+                                    + fixed_content[match.end() :]
+                                )
+
                         if fixed_content != content:
-                            yield from emit_error("unescaped_chars", 
-                                                f"Fixed {len(unescaped_matches)} unescaped characters in text",
-                                                "escaped special characters", severity="warning")
+                            yield from emit_error(
+                                "unescaped_chars",
+                                f"Fixed {len(unescaped_matches)} unescaped characters in text",
+                                "escaped special characters",
+                                severity="warning",
+                            )
                             content = fixed_content
-                
+
                 # Process entities in text content
                 if options.resolve_entities:
                     # Find and resolve entities in text
                     entity_pos = 0
                     resolved_parts = []
                     has_entities = False
-                    
-                    for entity_match in PATTERNS['entity_ref'].finditer(content):
+
+                    for entity_match in PATTERNS["entity_ref"].finditer(content):
                         has_entities = True
                         # Add text before entity
-                        resolved_parts.append(content[entity_pos:entity_match.start()])
-                        
+                        resolved_parts.append(
+                            content[entity_pos : entity_match.start()]
+                        )
+
                         # Resolve entity
                         if entity_match.group(1):  # Named entity
                             resolved = _resolve_entity(entity_match.group(1), False)
                         elif entity_match.group(2):  # Decimal numeric
                             resolved = _resolve_entity(entity_match.group(2), True)
                         elif entity_match.group(3):  # Hex numeric
-                            resolved = _resolve_entity('x' + entity_match.group(3), True)
+                            resolved = _resolve_entity(
+                                "x" + entity_match.group(3), True
+                            )
                         else:
                             resolved = entity_match.group(0)  # Keep original
-                        
+
                         resolved_parts.append(resolved)
                         entity_pos = entity_match.end()
-                    
+
                     if has_entities:
                         # Add remaining text
                         resolved_parts.append(content[entity_pos:])
-                        content = ''.join(resolved_parts)
-                
+                        content = "".join(resolved_parts)
+
                     # Try to fix broken entities if recovery is enabled
-                    if options.recovery_strategy in [RecoveryStrategy.LENIENT, RecoveryStrategy.AGGRESSIVE]:
-                        broken_entities = list(PATTERNS['broken_entity'].finditer(content))
+                    if options.recovery_strategy in [
+                        RecoveryStrategy.LENIENT,
+                        RecoveryStrategy.AGGRESSIVE,
+                    ]:
+                        broken_entities = list(
+                            PATTERNS["broken_entity"].finditer(content)
+                        )
                         if broken_entities:
                             fixed_content = content
                             for match in reversed(broken_entities):
                                 # Add missing semicolon
-                                fixed_content = (fixed_content[:match.end()] + 
-                                               ';' + 
-                                               fixed_content[match.end():])
-                            
+                                fixed_content = (
+                                    fixed_content[: match.end()]
+                                    + ";"
+                                    + fixed_content[match.end() :]
+                                )
+
                             if fixed_content != content:
-                                yield from emit_error("broken_entity", 
-                                                    f"Fixed {len(broken_entities)} broken entity references",
-                                                    "added missing semicolons", severity="warning")
+                                yield from emit_error(
+                                    "broken_entity",
+                                    f"Fixed {len(broken_entities)} broken entity references",
+                                    "added missing semicolons",
+                                    severity="warning",
+                                )
                                 content = fixed_content
-                
+
                 yield Text(content, line, column, is_cdata=False)
             text_buffer.clear()
-    
+
     # Main parsing loop
     while pos < len(text):
         if len(tag_stack) > options.max_depth:
-            yield from emit_error("depth_exceeded", 
-                                f"Maximum nesting depth {options.max_depth} exceeded", 
-                                "stopping parse", fatal=True)
+            yield from emit_error(
+                "depth_exceeded",
+                f"Maximum nesting depth {options.max_depth} exceeded",
+                "stopping parse",
+                fatal=True,
+            )
             break
-        
+
         # Check if we've hit the recovery attempt limit
         if recovery_attempts > options.max_recovery_attempts:
-            yield from emit_error("recovery_limit", 
-                                f"Maximum recovery attempts ({options.max_recovery_attempts}) exceeded",
-                                "stopping recovery", fatal=True)
+            yield from emit_error(
+                "recovery_limit",
+                f"Maximum recovery attempts ({options.max_recovery_attempts}) exceeded",
+                "stopping recovery",
+                fatal=True,
+            )
             break
-        
+
         # Look for next XML construct
         if state == ParserState.INITIAL:
             # Check for comments
-            comment_match = PATTERNS['comment'].match(text, pos)
+            comment_match = PATTERNS["comment"].match(text, pos)
             if comment_match:
                 yield from flush_text()
                 comment_content = comment_match.group(1)
                 yield Comment(comment_content, line, column)
                 pos = comment_match.end()
-                line, column = _update_position(text, comment_match.start(), pos, line, column)
+                line, column = _update_position(
+                    text, comment_match.start(), pos, line, column
+                )
                 continue
-            
+
             # Try to recover from broken comments
-            if options.recovery_strategy in [RecoveryStrategy.LENIENT, RecoveryStrategy.AGGRESSIVE]:
-                broken_comment_match = PATTERNS['broken_comment'].match(text, pos)
+            if options.recovery_strategy in [
+                RecoveryStrategy.LENIENT,
+                RecoveryStrategy.AGGRESSIVE,
+            ]:
+                broken_comment_match = PATTERNS["broken_comment"].match(text, pos)
                 if broken_comment_match:
                     yield from flush_text()
                     comment_content = broken_comment_match.group(1)
                     yield Comment(comment_content, line, column)
-                    yield from emit_error("broken_comment", 
-                                        "Fixed malformed comment (missing closing -->)",
-                                        "added missing comment close", severity="warning")
+                    yield from emit_error(
+                        "broken_comment",
+                        "Fixed malformed comment (missing closing -->)",
+                        "added missing comment close",
+                        severity="warning",
+                    )
                     pos = broken_comment_match.end()
-                    line, column = _update_position(text, broken_comment_match.start(), pos, line, column)
+                    line, column = _update_position(
+                        text, broken_comment_match.start(), pos, line, column
+                    )
                     recovery_attempts += 1
                     continue
-            
+
             # Check for CDATA
-            cdata_match = PATTERNS['cdata'].match(text, pos)
+            cdata_match = PATTERNS["cdata"].match(text, pos)
             if cdata_match:
                 yield from flush_text()
                 cdata_content = cdata_match.group(1)
                 yield Text(cdata_content, line, column, is_cdata=True)
                 pos = cdata_match.end()
-                line, column = _update_position(text, cdata_match.start(), pos, line, column)
+                line, column = _update_position(
+                    text, cdata_match.start(), pos, line, column
+                )
                 continue
-            
+
             # Try to recover from broken CDATA
-            if options.recovery_strategy in [RecoveryStrategy.LENIENT, RecoveryStrategy.AGGRESSIVE]:
-                broken_cdata_match = PATTERNS['broken_cdata'].match(text, pos)
+            if options.recovery_strategy in [
+                RecoveryStrategy.LENIENT,
+                RecoveryStrategy.AGGRESSIVE,
+            ]:
+                broken_cdata_match = PATTERNS["broken_cdata"].match(text, pos)
                 if broken_cdata_match:
                     yield from flush_text()
                     cdata_content = broken_cdata_match.group(1)
                     yield Text(cdata_content, line, column, is_cdata=True)
-                    yield from emit_error("broken_cdata", 
-                                        "Fixed malformed CDATA section (missing closing ]]>)",
-                                        "added missing CDATA close", severity="warning")
+                    yield from emit_error(
+                        "broken_cdata",
+                        "Fixed malformed CDATA section (missing closing ]]>)",
+                        "added missing CDATA close",
+                        severity="warning",
+                    )
                     pos = broken_cdata_match.end()
-                    line, column = _update_position(text, broken_cdata_match.start(), pos, line, column)
+                    line, column = _update_position(
+                        text, broken_cdata_match.start(), pos, line, column
+                    )
                     recovery_attempts += 1
                     continue
-            
+
             # Check for processing instructions
-            pi_match = PATTERNS['pi'].match(text, pos)
+            pi_match = PATTERNS["pi"].match(text, pos)
             if pi_match:
                 yield from flush_text()
                 target = pi_match.group(1)
                 data = pi_match.group(2).strip() if pi_match.group(2) else None
                 yield ProcessingInstruction(target, data, line, column)
                 pos = pi_match.end()
-                line, column = _update_position(text, pi_match.start(), pos, line, column)
+                line, column = _update_position(
+                    text, pi_match.start(), pos, line, column
+                )
                 continue
-            
+
             # Check for end tags
-            end_tag_match = PATTERNS['end_tag'].match(text, pos)
+            end_tag_match = PATTERNS["end_tag"].match(text, pos)
             if end_tag_match:
                 yield from flush_text()
                 tag_name = end_tag_match.group(1)
-                
+
                 # Handle tag mismatch with recovery
                 if tag_stack and tag_stack[-1] != tag_name:
                     if options.recover:
                         # Attempt recovery
-                        recovery_events = _recover_tag_mismatch(tag_stack, tag_name, line, column)
+                        recovery_events = _recover_tag_mismatch(
+                            tag_stack, tag_name, line, column
+                        )
                         for event in recovery_events:
                             yield event
-                        yield from emit_error("tag_mismatch", 
-                                            f"Mismatched end tag '{tag_name}', expected '{tag_stack[-1] if tag_stack else 'none'}'",
-                                            f"auto-closed {len(recovery_events)} tags", severity="warning")
+                        yield from emit_error(
+                            "tag_mismatch",
+                            f"Mismatched end tag '{tag_name}', expected '{tag_stack[-1] if tag_stack else 'none'}'",
+                            f"auto-closed {len(recovery_events)} tags",
+                            severity="warning",
+                        )
                         recovery_attempts += 1
                     else:
-                        yield from emit_error("tag_mismatch", 
-                                            f"Mismatched end tag '{tag_name}'", fatal=True)
+                        yield from emit_error(
+                            "tag_mismatch",
+                            f"Mismatched end tag '{tag_name}'",
+                            fatal=True,
+                        )
                         break
                 elif tag_stack:
                     tag_stack.pop()
-                
+
                 yield EndElement(tag_name, line, column, auto_closed=False)
                 pos = end_tag_match.end()
-                line, column = _update_position(text, end_tag_match.start(), pos, line, column)
+                line, column = _update_position(
+                    text, end_tag_match.start(), pos, line, column
+                )
                 continue
-            
+
             # Check for start tags
-            start_tag_match = PATTERNS['start_tag'].match(text, pos)
+            start_tag_match = PATTERNS["start_tag"].match(text, pos)
             if start_tag_match:
                 yield from flush_text()
                 tag_name = start_tag_match.group(1)
                 attr_string = start_tag_match.group(2)
                 self_closing = bool(start_tag_match.group(3))
-                
+
                 # Parse attributes with enhanced recovery
                 try:
                     if options.repair_attributes:
                         attributes, attr_recovery_messages = _repair_attributes(
-                            attr_string, 
-                            options.smart_quotes, 
-                            options.recovery_strategy
+                            attr_string, options.smart_quotes, options.recovery_strategy
                         )
-                        
+
                         # Emit recovery messages
                         for recovery_msg in attr_recovery_messages:
-                            yield from emit_error("attribute_repair", recovery_msg,
-                                                recovery_msg, severity="warning")
+                            yield from emit_error(
+                                "attribute_repair",
+                                recovery_msg,
+                                recovery_msg,
+                                severity="warning",
+                            )
                             recovery_attempts += 1
                     else:
                         attributes = _parse_attributes(attr_string)
                 except Exception as e:
                     attributes = {}
-                    yield from emit_error("attribute_parse", f"Failed to parse attributes: {e}", 
-                                        "using empty attributes")
-                
+                    yield from emit_error(
+                        "attribute_parse",
+                        f"Failed to parse attributes: {e}",
+                        "using empty attributes",
+                    )
+
                 # Handle namespaces if enabled
                 namespace = None
-                if options.namespace_aware and ':' in tag_name:
+                if options.namespace_aware and ":" in tag_name:
                     # Simple namespace handling - could be enhanced
-                    prefix, local_name = tag_name.split(':', 1)
-                    namespace = attributes.get(f'xmlns:{prefix}')
-                
+                    prefix, local_name = tag_name.split(":", 1)
+                    namespace = attributes.get(f"xmlns:{prefix}")
+
                 yield StartElement(tag_name, attributes, line, column, namespace)
-                
+
                 # Track tag for matching (unless self-closing)
                 if not self_closing:
                     tag_stack.append(tag_name)
                 else:
                     # Emit matching end element for self-closing tag
                     yield EndElement(tag_name, line, column, auto_closed=False)
-                
+
                 pos = start_tag_match.end()
-                line, column = _update_position(text, start_tag_match.start(), pos, line, column)
+                line, column = _update_position(
+                    text, start_tag_match.start(), pos, line, column
+                )
                 continue
-            
+
             # Regular text content
-            text_match = PATTERNS['text_content'].match(text, pos)
+            text_match = PATTERNS["text_content"].match(text, pos)
             if text_match:
                 text_content = text_match.group(0)
-                text_buffer.append(text_content) 
+                text_buffer.append(text_content)
                 pos = text_match.end()
-                line, column = _update_position(text, text_match.start(), pos, line, column)
+                line, column = _update_position(
+                    text, text_match.start(), pos, line, column
+                )
                 continue
-            
+
             # Handle entity references as part of text content
-            entity_match = PATTERNS['entity_ref'].match(text, pos)
+            entity_match = PATTERNS["entity_ref"].match(text, pos)
             if entity_match:
                 # Add entity to text buffer (will be resolved in flush_text)
                 entity_text = entity_match.group(0)
                 text_buffer.append(entity_text)
                 pos = entity_match.end()
-                line, column = _update_position(text, entity_match.start(), pos, line, column)
+                line, column = _update_position(
+                    text, entity_match.start(), pos, line, column
+                )
                 continue
-            
+
             # Check for incomplete tags at end of input
-            if options.recovery_strategy in [RecoveryStrategy.LENIENT, RecoveryStrategy.AGGRESSIVE]:
+            if options.recovery_strategy in [
+                RecoveryStrategy.LENIENT,
+                RecoveryStrategy.AGGRESSIVE,
+            ]:
                 incomplete_tag, new_pos, incomplete_recovery = _handle_incomplete_tag(
                     text, pos, line, column, options.recovery_strategy
                 )
@@ -843,51 +947,68 @@ def stream_parse(
                     yield StartElement(incomplete_tag, {}, line, column, None)
                     if options.auto_close_tags:
                         yield EndElement(incomplete_tag, line, column, auto_closed=True)
-                    
+
                     for recovery_msg in incomplete_recovery:
-                        yield from emit_error("incomplete_tag", recovery_msg,
-                                            recovery_msg, severity="warning")
-                    
+                        yield from emit_error(
+                            "incomplete_tag",
+                            recovery_msg,
+                            recovery_msg,
+                            severity="warning",
+                        )
+
                     pos = new_pos
                     recovery_attempts += 1
                     continue
-            
+
             # Handle smart quote recovery if enabled
-            if options.smart_quotes and options.recovery_strategy in [RecoveryStrategy.LENIENT, RecoveryStrategy.AGGRESSIVE]:
+            if options.smart_quotes and options.recovery_strategy in [
+                RecoveryStrategy.LENIENT,
+                RecoveryStrategy.AGGRESSIVE,
+            ]:
                 if pos < len(text) and text[pos] in {'"', "'"}:
-                    fixed_text, new_pos, quote_recovery = _smart_quote_recovery(text, pos)
+                    fixed_text, new_pos, quote_recovery = _smart_quote_recovery(
+                        text, pos
+                    )
                     if quote_recovery:
                         text = fixed_text
                         for recovery_msg in quote_recovery:
-                            yield from emit_error("quote_mismatch", recovery_msg,
-                                                recovery_msg, severity="warning")
+                            yield from emit_error(
+                                "quote_mismatch",
+                                recovery_msg,
+                                recovery_msg,
+                                severity="warning",
+                            )
                         recovery_attempts += 1
                         # Continue parsing from current position
                         continue
-            
+
             # If nothing matches, advance by one character to avoid infinite loop
             if pos < len(text):
                 char = text[pos]
-                if char not in ' \t\r\n' or options.preserve_whitespace:
+                if char not in " \t\r\n" or options.preserve_whitespace:
                     text_buffer.append(char)
                 pos += 1
-                if char == '\n':
+                if char == "\n":
                     line += 1
                     column = 1
                 else:
                     column += 1
-    
+
     # Flush any remaining text
     yield from flush_text()
-    
+
     # Auto-close any remaining open tags if recovery is enabled
     if options.recover and options.auto_close_tags and tag_stack:
-        yield from emit_error("unclosed_tags", f"{len(tag_stack)} unclosed tags at end of input", 
-                            "auto-closing all remaining tags", severity="warning")
+        yield from emit_error(
+            "unclosed_tags",
+            f"{len(tag_stack)} unclosed tags at end of input",
+            "auto-closing all remaining tags",
+            severity="warning",
+        )
         while tag_stack:
             tag_name = tag_stack.pop()
             yield EndElement(tag_name, line, column, auto_closed=True)
-    
+
     # Emit collected errors if requested
     if options.collect_errors and collected_errors:
         for error in collected_errors:
@@ -898,28 +1019,28 @@ def tree_parse(
     xml_input: Union[str, TextIO, Iterator[XMLEvent]],
     tree_builder: Optional[TreeBuilder] = None,
     options: Optional[ParseOptions] = None,
-    **parse_options
+    **parse_options,
 ) -> ET.Element:
     """
     Build XML tree from input or parsing events.
-    
+
     This is a convenience function that combines streaming parsing with tree
     building. It can accept either raw XML input (which will be parsed) or
     an iterator of parsing events.
-    
+
     Args:
         xml_input: XML string, file-like object, or iterator of XMLEvents
         tree_builder: Tree builder instance (defaults to ElementTreeBuilder)
         options: ParseOptions instance for configuration
         **parse_options: Additional legacy options passed to stream_parse if needed
-        
+
     Returns:
         ET.Element: Root element of the constructed XML tree
-        
+
     Raises:
         ValueError: If input is invalid or tree construction fails
         TypeError: If tree_builder doesn't implement TreeBuilder interface
-        
+
     Examples:
         >>> xml = "<root><child>text</child></root>"
         >>> root = tree_parse(xml)
@@ -927,7 +1048,7 @@ def tree_parse(
         'root'
         >>> root[0].text
         'text'
-        
+
         >>> # Use enhanced options for fragments
         >>> opts = ParseOptions(allow_fragments=True)
         >>> root = tree_parse("text only", options=opts)
@@ -935,11 +1056,13 @@ def tree_parse(
     # Create default tree builder if none provided
     if tree_builder is None:
         tree_builder = ElementTreeBuilder()
-    
+
     # Check if input is already an event stream (but not a file-like object)
-    if (hasattr(xml_input, '__iter__') and 
-        not isinstance(xml_input, (str, bytes)) and 
-        not hasattr(xml_input, 'read')):
+    if (
+        hasattr(xml_input, "__iter__")
+        and not isinstance(xml_input, (str, bytes))
+        and not hasattr(xml_input, "read")
+    ):
         # Assume it's an iterator of events
         events = xml_input
     else:
@@ -948,7 +1071,7 @@ def tree_parse(
             events = stream_parse(xml_input, options=options, **parse_options)
         else:
             events = stream_parse(xml_input, **parse_options)
-    
+
     # Process events through tree builder
     for event in events:
         if isinstance(event, StartElement):
@@ -965,7 +1088,7 @@ def tree_parse(
             tree_builder.entity_ref(event)
         elif isinstance(event, ParseError):
             tree_builder.parse_error(event)
-    
+
     # Return constructed tree root
     root = tree_builder.get_root()
     if root is None:
@@ -973,6 +1096,7 @@ def tree_parse(
         if options and options.allow_fragments:
             # Create a synthetic root element for fragments
             from xml.etree.ElementTree import Element
+
             synthetic_root = Element("fragment")
             return synthetic_root
         else:
@@ -983,28 +1107,28 @@ def tree_parse(
 def parse_events(
     xml_input: Union[str, TextIO],
     options: Optional[ParseOptions] = None,
-    **parse_options
+    **parse_options,
 ) -> List[XMLEvent]:
     """
     Parse XML input and return list of all events.
-    
+
     This is a convenience function for debugging and analysis that collects
     all parsing events into a list rather than yielding them incrementally.
-    
+
     Args:
         xml_input: XML string or file-like object to parse
         options: ParseOptions instance for configuration
         **parse_options: Legacy options passed to stream_parse
-        
+
     Returns:
         List[XMLEvent]: List of all parsing events
-        
+
     Examples:
         >>> xml = "<root>text</root>"
         >>> events = parse_events(xml)
         >>> [type(e).__name__ for e in events]
         ['StartElement', 'Text', 'EndElement']
-        
+
         >>> # Parse with enhanced error reporting
         >>> opts = ParseOptions(emit_errors=True, recovery_strategy=RecoveryStrategy.AGGRESSIVE)
         >>> events = parse_events('<root><broken attr="missing quote>text</root>', options=opts)
@@ -1020,26 +1144,27 @@ def parse_events(
 # Internal Helper Functions
 # =============================================================================
 
+
 def _resolve_entity(entity_name: str, is_numeric: bool = False) -> str:
     """
     Resolve entity reference to character.
-    
+
     Args:
         entity_name: Entity name (without & and ;)
         is_numeric: True for numeric entities (&#123; or &#x1A;)
-        
+
     Returns:
         str: Resolved character or original entity if unresolvable
     """
     if is_numeric:
         try:
-            if entity_name.startswith('x') or entity_name.startswith('X'):
+            if entity_name.startswith("x") or entity_name.startswith("X"):
                 # Hexadecimal numeric entity
                 code_point = int(entity_name[1:], 16)
             else:
                 # Decimal numeric entity
                 code_point = int(entity_name)
-            
+
             # Validate Unicode code point range
             if 0 <= code_point <= 0x10FFFF:
                 return chr(code_point)
@@ -1049,29 +1174,29 @@ def _resolve_entity(entity_name: str, is_numeric: bool = False) -> str:
         # Named entity - try both with and without semicolon
         if entity_name in HTML_ENTITIES:
             return HTML_ENTITIES[entity_name]
-        elif entity_name + ';' in HTML_ENTITIES:
-            return HTML_ENTITIES[entity_name + ';']
-    
+        elif entity_name + ";" in HTML_ENTITIES:
+            return HTML_ENTITIES[entity_name + ";"]
+
     # Return original entity if unresolvable
-    return f'&{entity_name};'
+    return f"&{entity_name};"
 
 
 def _parse_attributes(attr_string: str) -> Dict[str, str]:
     """
     Parse attribute string into name-value dictionary.
-    
+
     Args:
         attr_string: Raw attribute string from tag
-        
+
     Returns:
         Dict[str, str]: Dictionary of attribute names to values
     """
     attributes = {}
     if not attr_string.strip():
         return attributes
-    
+
     # Find all attribute matches
-    for match in PATTERNS['attributes'].finditer(attr_string):
+    for match in PATTERNS["attributes"].finditer(attr_string):
         name = match.group(1)
         # Groups: 1=name, 2=double-quoted, 3=single-quoted, 4=unquoted
         if match.group(2) is not None:
@@ -1082,97 +1207,93 @@ def _parse_attributes(attr_string: str) -> Dict[str, str]:
             value = match.group(4)  # Unquoted value
         else:
             value = ""  # Attribute without value
-        
+
         attributes[name] = value
-    
+
     return attributes
 
 
-def _update_position(text: str, start_pos: int, end_pos: int, 
-                    current_line: int, current_column: int) -> tuple[int, int]:
+def _update_position(
+    text: str, start_pos: int, end_pos: int, current_line: int, current_column: int
+) -> tuple[int, int]:
     """
     Update line and column numbers based on text consumed.
-    
+
     Args:
         text: Source text
         start_pos: Starting position
         end_pos: Ending position
         current_line: Current line number
         current_column: Current column number
-        
+
     Returns:
         tuple[int, int]: Updated (line, column) position
     """
     consumed_text = text[start_pos:end_pos]
-    
+
     # Count newlines in the consumed text
-    newline_count = consumed_text.count('\n')
-    
+    newline_count = consumed_text.count("\n")
+
     if newline_count == 0:
         # No newlines, just advance column
         return current_line, current_column + (end_pos - start_pos)
     else:
         # Update line number and reset column to position after last newline
         new_line = current_line + newline_count
-        last_newline_pos = consumed_text.rfind('\n')
+        last_newline_pos = consumed_text.rfind("\n")
         new_column = len(consumed_text) - last_newline_pos - 1
         return new_line, new_column
 
 
 def _recover_tag_mismatch(
-    tag_stack: List[str], 
-    end_tag: str,
-    line: int,
-    column: int
+    tag_stack: List[str], end_tag: str, line: int, column: int
 ) -> List[EndElement]:
     """
     Recover from mismatched end tags by auto-closing open tags.
-    
+
     Args:
         tag_stack: Stack of currently open tags
         end_tag: The end tag that was encountered
         line: Current line number
         column: Current column number
-        
+
     Returns:
         List[EndElement]: Auto-generated end elements for recovery
     """
     recovery_events = []
-    
+
     # Look for the matching start tag in the stack
     matching_index = -1
     for i in range(len(tag_stack) - 1, -1, -1):
         if tag_stack[i] == end_tag:
             matching_index = i
             break
-    
+
     if matching_index >= 0:
         # Auto-close all tags above the matching one
         for i in range(len(tag_stack) - 1, matching_index, -1):
             tag_name = tag_stack.pop()
-            recovery_events.append(
-                EndElement(tag_name, line, column, auto_closed=True)
-            )
+            recovery_events.append(EndElement(tag_name, line, column, auto_closed=True))
         # Remove the matching tag as well
         tag_stack.pop()
-    
+
     return recovery_events
 
 
 def _create_error_with_context(
-    error_type: str, 
-    message: str, 
-    line: int, 
+    error_type: str,
+    message: str,
+    line: int,
     column: int,
     text: str,
     pos: int,
     recovery: str = "",
     fatal: bool = False,
-    severity: str = "error"
+    severity: str = "error",
 ) -> ParseError:
     """
     Create a ParseError with surrounding context for better debugging.
-    
+
     Args:
         error_type: Category of error
         message: Human-readable error description
@@ -1183,7 +1304,7 @@ def _create_error_with_context(
         recovery: Description of recovery action
         fatal: Whether parsing cannot continue
         severity: Error severity level
-        
+
     Returns:
         ParseError: Enhanced error with context
     """
@@ -1191,15 +1312,15 @@ def _create_error_with_context(
     context_start = max(0, pos - 50)
     context_end = min(len(text), pos + 50)
     context = text[context_start:context_end]
-    
+
     # Mark the error position in context
     if pos >= context_start and pos < context_end:
         error_pos = pos - context_start
         context = context[:error_pos] + ">>>" + context[error_pos:]
-    
+
     # Clean up context (remove newlines for readability)
-    context = context.replace('\n', '\\n').replace('\r', '\\r')
-    
+    context = context.replace("\n", "\\n").replace("\r", "\\r")
+
     return ParseError(
         error_type=error_type,
         message=message,
@@ -1208,34 +1329,34 @@ def _create_error_with_context(
         recovery=recovery,
         fatal=fatal,
         context=context,
-        severity=severity
+        severity=severity,
     )
 
 
 def _repair_attributes(
     attr_string: str,
     smart_quotes: bool = True,
-    recovery_strategy: RecoveryStrategy = RecoveryStrategy.LENIENT
+    recovery_strategy: RecoveryStrategy = RecoveryStrategy.LENIENT,
 ) -> Tuple[Dict[str, str], List[str]]:
     """
     Enhanced attribute parsing with error recovery.
-    
+
     Args:
         attr_string: Raw attribute string from tag
         smart_quotes: Enable smart quote matching
         recovery_strategy: Recovery approach to use
-        
+
     Returns:
         Tuple of (attributes dict, list of recovery messages)
     """
     attributes = {}
     recovery_messages = []
-    
+
     if not attr_string.strip():
         return attributes, recovery_messages
-    
+
     # First try normal parsing
-    for match in PATTERNS['attributes'].finditer(attr_string):
+    for match in PATTERNS["attributes"].finditer(attr_string):
         name = match.group(1)
         # Groups: 1=name, 2=double-quoted, 3=single-quoted, 4=unquoted
         if match.group(2) is not None:
@@ -1246,166 +1367,172 @@ def _repair_attributes(
             value = match.group(4)  # Unquoted value
         else:
             value = ""  # Attribute without value
-        
+
         attributes[name] = value
-    
+
     # If normal parsing didn't capture everything, try recovery
     if recovery_strategy != RecoveryStrategy.STRICT:
         remaining = attr_string
-        
+
         # Remove successfully parsed attributes
-        for match in PATTERNS['attributes'].finditer(attr_string):
-            remaining = remaining.replace(match.group(0), '', 1)
-        
+        for match in PATTERNS["attributes"].finditer(attr_string):
+            remaining = remaining.replace(match.group(0), "", 1)
+
         remaining = remaining.strip()
         if remaining:
             # Try to recover malformed attributes
             if smart_quotes:
                 # Handle mixed quotes
-                for match in PATTERNS['mixed_quotes'].finditer(remaining):
+                for match in PATTERNS["mixed_quotes"].finditer(remaining):
                     name = match.group(1)
                     value = match.group(2) or match.group(3)
                     attributes[name] = value
-                    recovery_messages.append(f"Fixed mixed quotes in attribute '{name}'")
-                    remaining = remaining.replace(match.group(0), '', 1)
-            
+                    recovery_messages.append(
+                        f"Fixed mixed quotes in attribute '{name}'"
+                    )
+                    remaining = remaining.replace(match.group(0), "", 1)
+
             # Handle unquoted values
-            for match in PATTERNS['malformed_attr'].finditer(remaining):
+            for match in PATTERNS["malformed_attr"].finditer(remaining):
                 name = match.group(1)
                 value = match.group(2)
                 attributes[name] = value
                 recovery_messages.append(f"Added quotes to unquoted attribute '{name}'")
-                remaining = remaining.replace(match.group(0), '', 1)
-    
+                remaining = remaining.replace(match.group(0), "", 1)
+
     return attributes, recovery_messages
 
 
 def _fix_encoding_issues(text: str) -> Tuple[str, List[str]]:
     """
     Attempt to fix common encoding issues in XML text.
-    
+
     Args:
         text: Input text that may have encoding issues
-        
+
     Returns:
         Tuple of (fixed text, list of fix messages)
     """
     fixes = []
     result = text
-    
+
     # Remove or replace control characters
-    if PATTERNS['encoding_issues'].search(result):
+    if PATTERNS["encoding_issues"].search(result):
         original_len = len(result)
-        result = PATTERNS['encoding_issues'].sub('', result)
+        result = PATTERNS["encoding_issues"].sub("", result)
         fixes.append(f"Removed {original_len - len(result)} control characters")
-    
+
     # Common encoding fixes
     encoding_fixes = {
-        '\u2013': '-',      # en dash
-        '\u2014': '--',     # em dash
-        '\u2018': "'",      # left single quote
-        '\u2019': "'",      # right single quote
-        '\u201c': '"',      # left double quote
-        '\u201d': '"',      # right double quote
-        '\u2026': '...',    # ellipsis
-        '\u00a0': ' ',      # non-breaking space
+        "\u2013": "-",  # en dash
+        "\u2014": "--",  # em dash
+        "\u2018": "'",  # left single quote
+        "\u2019": "'",  # right single quote
+        "\u201c": '"',  # left double quote
+        "\u201d": '"',  # right double quote
+        "\u2026": "...",  # ellipsis
+        "\u00a0": " ",  # non-breaking space
     }
-    
+
     for bad_char, replacement in encoding_fixes.items():
         if bad_char in result:
             result = result.replace(bad_char, replacement)
             fixes.append(f"Replaced '{bad_char}' with '{replacement}'")
-    
+
     return result, fixes
 
 
 def _smart_quote_recovery(text: str, pos: int) -> Tuple[str, int, List[str]]:
     """
     Attempt to recover from quote mismatches using smart matching.
-    
+
     Args:
         text: Full text being parsed
         pos: Current position in text
-        
+
     Returns:
         Tuple of (recovered text, new position, recovery messages)
     """
     recovery_messages = []
-    
+
     # Look for common quote patterns that can be fixed
     # This is a simplified implementation - could be much more sophisticated
-    
+
     # Find the nearest quote characters
     quote_chars = {'"', "'"}
-    
+
     # Look ahead for potential quote issues
-    look_ahead = text[pos:pos+100]  # Look at next 100 chars
-    
+    look_ahead = text[pos : pos + 100]  # Look at next 100 chars
+
     quote_positions = []
     for i, char in enumerate(look_ahead):
         if char in quote_chars:
             quote_positions.append((i + pos, char))
-    
+
     if len(quote_positions) >= 2:
         # Try to match quotes intelligently
         if quote_positions[0][1] != quote_positions[1][1]:
             # Mismatched quotes - try to fix
             first_pos, first_char = quote_positions[0]
             second_pos, second_char = quote_positions[1]
-            
+
             # Replace the second quote with the first to match
-            fixed_text = text[:second_pos] + first_char + text[second_pos + 1:]
-            recovery_messages.append(f"Fixed mismatched quotes: '{second_char}' -> '{first_char}'")
+            fixed_text = text[:second_pos] + first_char + text[second_pos + 1 :]
+            recovery_messages.append(
+                f"Fixed mismatched quotes: '{second_char}' -> '{first_char}'"
+            )
             return fixed_text, pos, recovery_messages
-    
+
     return text, pos, recovery_messages
 
 
 def _handle_incomplete_tag(
-    text: str, 
-    pos: int, 
-    line: int, 
+    text: str,
+    pos: int,
+    line: int,
     column: int,
-    recovery_strategy: RecoveryStrategy = RecoveryStrategy.LENIENT
+    recovery_strategy: RecoveryStrategy = RecoveryStrategy.LENIENT,
 ) -> Tuple[Optional[str], int, List[str]]:
     """
     Handle incomplete or malformed tags at end of input.
-    
+
     Args:
         text: Full text being parsed
         pos: Current position in text
         line: Current line number
         column: Current column number
         recovery_strategy: Recovery approach to use
-        
+
     Returns:
         Tuple of (recovered tag name or None, new position, recovery messages)
     """
     recovery_messages = []
-    
+
     # Check if we have an incomplete tag
-    incomplete_match = PATTERNS['incomplete_tag'].match(text, pos)
+    incomplete_match = PATTERNS["incomplete_tag"].match(text, pos)
     if incomplete_match:
         tag_name = incomplete_match.group(1)
         attr_string = incomplete_match.group(2)
-        
+
         if recovery_strategy in [RecoveryStrategy.LENIENT, RecoveryStrategy.AGGRESSIVE]:
             # Try to recover by adding missing >
-            recovery_messages.append(f"Added missing '>' to incomplete tag '{tag_name}'")
+            recovery_messages.append(
+                f"Added missing '>' to incomplete tag '{tag_name}'"
+            )
             return tag_name, len(text), recovery_messages
-    
+
     # Look for other common incomplete patterns
     remaining = text[pos:].strip()
-    if remaining.startswith('<'):
+    if remaining.startswith("<"):
         # Incomplete tag start
         if recovery_strategy == RecoveryStrategy.AGGRESSIVE:
             # Try to extract tag name
-            tag_match = re.match(r'<\s*([a-zA-Z_:][a-zA-Z0-9_:.-]*)', remaining)
+            tag_match = re.match(r"<\s*([a-zA-Z_:][a-zA-Z0-9_:.-]*)", remaining)
             if tag_match:
                 tag_name = tag_match.group(1)
                 recovery_messages.append(f"Recovered incomplete tag '{tag_name}'")
                 return tag_name, len(text), recovery_messages
-    
+
     return None, pos, recovery_messages
 
 
@@ -1423,18 +1550,27 @@ DEFAULT_OPTIONS = ParseOptions()
 # Export main API
 __all__ = [
     # Event types
-    'StartElement', 'EndElement', 'Text', 'Comment', 
-    'ProcessingInstruction', 'EntityRef', 'ParseError', 'XMLEvent',
-    
+    "StartElement",
+    "EndElement",
+    "Text",
+    "Comment",
+    "ProcessingInstruction",
+    "EntityRef",
+    "ParseError",
+    "XMLEvent",
     # Parser states and options
-    'ParserState', 'ParseOptions', 'RecoveryStrategy',
-    
+    "ParserState",
+    "ParseOptions",
+    "RecoveryStrategy",
     # Tree builder interface
-    'TreeBuilder', 'ElementTreeBuilder',
-    
+    "TreeBuilder",
+    "ElementTreeBuilder",
     # Main parsing functions
-    'stream_parse', 'tree_parse', 'parse_events',
-    
+    "stream_parse",
+    "tree_parse",
+    "parse_events",
     # Constants
-    'HTML_ENTITIES', 'PATTERNS', 'DEFAULT_OPTIONS'
+    "HTML_ENTITIES",
+    "PATTERNS",
+    "DEFAULT_OPTIONS",
 ]
