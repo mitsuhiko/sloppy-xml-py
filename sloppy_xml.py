@@ -1176,40 +1176,6 @@ def tree_parse(
     return root
 
 
-def parse_events(
-    xml_input: Union[str, TextIO],
-    options: Optional[ParseOptions] = None,
-    **parse_options,
-) -> List[XMLEvent]:
-    """
-    Parse XML input and return list of all events.
-
-    This is a convenience function for debugging and analysis that collects
-    all parsing events into a list rather than yielding them incrementally.
-
-    Args:
-        xml_input: XML string or file-like object to parse
-        options: ParseOptions instance for configuration
-        **parse_options: Legacy options passed to stream_parse
-
-    Returns:
-        List[XMLEvent]: List of all parsing events
-
-    Examples:
-        >>> xml = "<root>text</root>"
-        >>> events = parse_events(xml)
-        >>> [type(e).__name__ for e in events]
-        ['StartElement', 'Text', 'EndElement']
-
-        >>> # Parse with enhanced error reporting
-        >>> opts = ParseOptions(emit_errors=True, recovery_strategy=RecoveryStrategy.AGGRESSIVE)
-        >>> events = parse_events('<root><broken attr="missing quote>text</root>', options=opts)
-    """
-    # Call stream_parse and collect all events
-    if options is not None:
-        return list(stream_parse(xml_input, options=options, **parse_options))
-    else:
-        return list(stream_parse(xml_input, **parse_options))
 
 
 # =============================================================================
@@ -1640,7 +1606,6 @@ __all__ = [
     # Main parsing functions
     "stream_parse",
     "tree_parse",
-    "parse_events",
     # Constants
     "DEFAULT_OPTIONS",
     "HAS_LXML",
