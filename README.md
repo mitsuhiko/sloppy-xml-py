@@ -12,6 +12,8 @@ Sloppy XML is a single-file XML parser library that prioritizes resilience over 
 
 The parser provides both streaming and tree-building capabilities with robust error recovery mechanisms, making it ideal for parsing XML from unreliable sources while maintaining reasonable performance.
 
+**Note:** this library was 100% AI generated with Claude Code and used experimentall for some evals I'm doing.  I will try to fix it up as good as possible as I ran into issues, but I cannot vouch for the quality of it.
+
 ## Goals
 
 * **Graceful Error Recovery**: Handle malformed XML without crashing
