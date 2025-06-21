@@ -2,7 +2,7 @@
 Sloppy XML Parser Library
 
 A single-file XML parser designed to handle malformed XML gracefully while
-maintaining high performance through pre-compiled regular expressions.
+maintaining reasonable performance through pre-compiled regular expressions.
 
 This library provides both streaming and tree-building XML parsing capabilities
 with robust error recovery mechanisms for handling malformed XML commonly
