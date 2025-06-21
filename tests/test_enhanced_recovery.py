@@ -80,25 +80,14 @@ def test_fragment_support():
 
     opts = ParseOptions(allow_fragments=True)
 
-    # This may not work depending on implementation
-    try:
-        tree = sloppy_xml.tree_parse(fragment, options=opts)
-        # If it works, tree should not be None
-        assert tree is not None
-    except (ValueError, Exception):
-        # Fragment parsing might not be supported, that's OK
-        pass
+    tree = sloppy_xml.tree_parse(fragment, options=opts)
+    assert tree is not None
 
     # Multiple root elements
     multi_root = "<root1>content1</root1><root2>content2</root2>"
 
-    try:
-        tree = sloppy_xml.tree_parse(multi_root, options=opts)
-        # If it works, should get some tree
-        assert tree is not None
-    except (ValueError, Exception):
-        # Multi-root might not be supported, that's OK
-        pass
+    tree = sloppy_xml.tree_parse(multi_root, options=opts)
+    assert tree is not None
 
 
 def test_recovery_strategies():
