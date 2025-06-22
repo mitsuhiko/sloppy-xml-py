@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.3.0
+
+- Added entity resolution in attributes
+
+## 0.2.1
+
+- Fixed readme reference
+
 ## 0.2.0
 
 - Added `tree` parameter to parsing functions for more flexible tree building
