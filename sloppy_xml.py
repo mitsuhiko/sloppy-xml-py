@@ -958,7 +958,10 @@ def stream_parse(
                 try:
                     if options.repair_attributes:
                         attributes, attr_recovery_messages = _repair_attributes(
-                            attr_string, options.smart_quotes, options.recovery_strategy
+                            attr_string,
+                            options.smart_quotes,
+                            options.recovery_strategy,
+                            options.resolve_entities,
                         )
 
                         # Emit recovery messages
@@ -971,7 +974,9 @@ def stream_parse(
                             )
                             recovery_attempts += 1
                     else:
-                        attributes = _parse_attributes(attr_string)
+                        attributes = _parse_attributes(
+                            attr_string, options.resolve_entities
+                        )
                 except Exception as e:
                     attributes = {}
                     yield from emit_error(
@@ -1233,12 +1238,59 @@ def _resolve_entity(entity_name: str, is_numeric: bool = False) -> str:
     return f"&{entity_name};"
 
 
-def _parse_attributes(attr_string: str) -> Dict[str, str]:
+def _resolve_entities_in_text(text: str) -> str:
+    """
+    Resolve entity references in text content.
+
+    Args:
+        text: Text content that may contain entity references
+
+    Returns:
+        str: Text with entities resolved to their character equivalents
+    """
+    if not text or "&" not in text:
+        return text
+
+    # Find and resolve entities in text
+    entity_pos = 0
+    resolved_parts = []
+    has_entities = False
+
+    for entity_match in PATTERNS["entity_ref"].finditer(text):
+        has_entities = True
+        # Add text before entity
+        resolved_parts.append(text[entity_pos : entity_match.start()])
+
+        # Resolve entity
+        if entity_match.group(1):  # Named entity
+            resolved = _resolve_entity(entity_match.group(1), False)
+        elif entity_match.group(2):  # Decimal numeric
+            resolved = _resolve_entity(entity_match.group(2), True)
+        elif entity_match.group(3):  # Hex numeric
+            resolved = _resolve_entity("x" + entity_match.group(3), True)
+        else:
+            resolved = entity_match.group(0)  # Keep original
+
+        resolved_parts.append(resolved)
+        entity_pos = entity_match.end()
+
+    if has_entities:
+        # Add remaining text
+        resolved_parts.append(text[entity_pos:])
+        return "".join(resolved_parts)
+
+    return text
+
+
+def _parse_attributes(
+    attr_string: str, resolve_entities: bool = True
+) -> Dict[str, str]:
     """
     Parse attribute string into name-value dictionary.
 
     Args:
         attr_string: Raw attribute string from tag
+        resolve_entities: Whether to resolve entity references in attribute values
 
     Returns:
         Dict[str, str]: Dictionary of attribute names to values
@@ -1259,6 +1311,10 @@ def _parse_attributes(attr_string: str) -> Dict[str, str]:
             value = match.group(4)  # Unquoted value
         else:
             value = ""  # Attribute without value
+
+        # Resolve entities in attribute value if enabled
+        if resolve_entities and value:
+            value = _resolve_entities_in_text(value)
 
         attributes[name] = value
 
@@ -1389,6 +1445,7 @@ def _repair_attributes(
     attr_string: str,
     smart_quotes: bool = True,
     recovery_strategy: RecoveryStrategy = RecoveryStrategy.LENIENT,
+    resolve_entities: bool = True,
 ) -> Tuple[Dict[str, str], List[str]]:
     """
     Enhanced attribute parsing with error recovery.
@@ -1397,6 +1454,7 @@ def _repair_attributes(
         attr_string: Raw attribute string from tag
         smart_quotes: Enable smart quote matching
         recovery_strategy: Recovery approach to use
+        resolve_entities: Whether to resolve entity references in attribute values
 
     Returns:
         Tuple of (attributes dict, list of recovery messages)
@@ -1420,6 +1478,10 @@ def _repair_attributes(
         else:
             value = ""  # Attribute without value
 
+        # Resolve entities in attribute value if enabled
+        if resolve_entities and value:
+            value = _resolve_entities_in_text(value)
+
         attributes[name] = value
 
     # If normal parsing didn't capture everything, try recovery
@@ -1438,6 +1500,11 @@ def _repair_attributes(
                 for match in PATTERNS["mixed_quotes"].finditer(remaining):
                     name = match.group(1)
                     value = match.group(2) or match.group(3)
+
+                    # Resolve entities in attribute value if enabled
+                    if resolve_entities and value:
+                        value = _resolve_entities_in_text(value)
+
                     attributes[name] = value
                     recovery_messages.append(
                         f"Fixed mixed quotes in attribute '{name}'"
@@ -1448,6 +1515,11 @@ def _repair_attributes(
             for match in PATTERNS["malformed_attr"].finditer(remaining):
                 name = match.group(1)
                 value = match.group(2)
+
+                # Resolve entities in attribute value if enabled
+                if resolve_entities and value:
+                    value = _resolve_entities_in_text(value)
+
                 attributes[name] = value
                 recovery_messages.append(f"Added quotes to unquoted attribute '{name}'")
                 remaining = remaining.replace(match.group(0), "", 1)

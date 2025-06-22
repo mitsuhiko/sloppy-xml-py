@@ -454,6 +454,66 @@ def test_malformed_numeric_entities():
     assert len(text_events) > 0
 
 
+def test_entity_resolution_in_attributes():
+    """Test that entities are resolved in attribute values."""
+    # Test the specific bug case reported
+    xml = '<x><link href="https://secure.booking.invalid/myreservations.en-us.html?bn=4759;pincode=4391&amp;entrypoint=email_wakeup"/></x>'
+
+    # Test with entity resolution enabled (default)
+    events = list(sloppy_xml.stream_parse(xml, resolve_entities=True))
+    start_events = [
+        e for e in events if isinstance(e, StartElement) and e.name == "link"
+    ]
+    assert len(start_events) == 1
+    href = start_events[0].attrs.get("href")
+    assert (
+        href
+        == "https://secure.booking.invalid/myreservations.en-us.html?bn=4759;pincode=4391&entrypoint=email_wakeup"
+    )
+    assert "&amp;" not in href  # Entity should be resolved
+
+    # Test with entity resolution disabled
+    events = list(sloppy_xml.stream_parse(xml, resolve_entities=False))
+    start_events = [
+        e for e in events if isinstance(e, StartElement) and e.name == "link"
+    ]
+    assert len(start_events) == 1
+    href = start_events[0].attrs.get("href")
+    assert "&amp;" in href  # Entity should remain unresolved
+
+    # Test various entity types in attribute values
+    test_cases = [
+        ('<test attr="&amp;"/>', "&"),
+        ('<test attr="&lt;&gt;"/>', "<>"),
+        ('<test attr="&quot;&apos;"/>', "\"'"),
+        ('<test attr="&quot&apos"/>', "\"'"),
+        ('<test attr="&#65;&#66;&#67;"/>', "ABC"),
+        ('<test attr="&#x41;&#x42;&#x43;"/>', "ABC"),
+    ]
+
+    for xml, expected in test_cases:
+        events = list(sloppy_xml.stream_parse(xml, resolve_entities=True))
+        start_events = [
+            e for e in events if isinstance(e, StartElement) and e.name == "test"
+        ]
+        assert len(start_events) == 1
+        attr_value = start_events[0].attrs.get("attr")
+        assert attr_value == expected, (
+            f"Expected {expected!r}, got {attr_value!r} for {xml}"
+        )
+
+    # Test tree parsing also works correctly
+    original_xml = '<x><link href="https://secure.booking.invalid/myreservations.en-us.html?bn=4759;pincode=4391&amp;entrypoint=email_wakeup"/></x>'
+    root = sloppy_xml.tree_parse(original_xml)
+    link = root.find("link")
+    assert link is not None
+    href = link.get("href")
+    assert (
+        href
+        == "https://secure.booking.invalid/myreservations.en-us.html?bn=4759;pincode=4391&entrypoint=email_wakeup"
+    )
+
+
 def test_basic_comments():
     """Test parsing basic comments."""
     xml = "<!--comment--><root>content</root>"
