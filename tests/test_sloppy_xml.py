@@ -1331,12 +1331,12 @@ def test_recovery_strategies_parametrized(recovery_strategy):
 )
 def test_entity_resolution_parametrized(entity, expected):
     """Test entity resolution with parametrized entities."""
-    xml = f"<root>{entity}</root>"
+    xml = f"<root>|{entity}|</root>"
     events = list(sloppy_xml.stream_parse(xml))
 
     text_events = [e for e in events if isinstance(e, Text)]
     assert len(text_events) == 1
-    assert expected in text_events[0].content
+    assert ("|%s|" % expected) in text_events[0].content
 
 
 @pytest.mark.parametrize(
