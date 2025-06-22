@@ -2,7 +2,7 @@
   <img src="https://github.com/mitsuhiko/sloppy-xml-py/raw/main/logo.svg" alt="" width=240>
   <p><strong>A sloppy XML parser for Python designed to handle malformed XML gracefully.</strong></p>
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mitsuhiko/sloppy-xml-py/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/mitsuhiko/sloppy-xml-py/blob/main/LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
 [![Tests](https://img.shields.io/badge/tests-passing-green.svg)](https://github.com/mitsuhiko/sloppy-xml-py)
 
