@@ -172,6 +172,24 @@ def test_position_tracking():
     assert child_events[0].line == 2
 
 
+def test_self_closing_tag_multiline_position():
+    """Test that EndElement for multi-line self-closing tags reports correct position."""
+    xml = """<strong>Name <t
+        t-esc="o.name"
+    />
+</strong>"""
+    events = list(sloppy_xml.stream_parse(xml))
+
+    # Find the EndElement for the self-closing tag 't'
+    end_events = [e for e in events if isinstance(e, EndElement) and e.name == "t"]
+    assert len(end_events) == 1
+    end_event = end_events[0]
+
+    # The EndElement should be at line 3 where the '/>' is, not line 1 where the tag starts
+    assert end_event.line == 3
+    assert end_event.column == 6
+
+
 def test_streaming_large_input():
     """Test streaming behavior with large input."""
     # Create a large XML document
