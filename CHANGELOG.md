@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Fixed position tracking for self-closing tags that span multiple lines.  #5
+
 ## 0.3.0
 
 - Added entity resolution in attributes
