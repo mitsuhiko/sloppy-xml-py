@@ -361,8 +361,6 @@ def test_tree_parameter():
         assert isinstance(tree_lxml, lxml_etree._Element)
 
     # Test with invalid tree backend should raise an error
-    import pytest
-
     with pytest.raises(KeyError):
         sloppy_xml.tree_parse(xml, tree="invalid_backend")
 

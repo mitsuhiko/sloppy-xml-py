@@ -660,7 +660,6 @@ def stream_parse(
     column = 1
     tag_stack = []
     text_buffer = []
-    error_count = 0
     recovery_attempts = 0
     collected_errors = []
 
@@ -672,8 +671,7 @@ def stream_parse(
         severity: str = "error",
     ):
         """Helper to emit parse errors if enabled."""
-        nonlocal error_count, collected_errors
-        error_count += 1
+        nonlocal collected_errors
 
         error = _create_error_with_context(
             error_type, message, line, column, text, pos, recovery, fatal, severity
@@ -989,7 +987,7 @@ def stream_parse(
                 namespace = None
                 if options.namespace_aware and ":" in tag_name:
                     # Simple namespace handling - could be enhanced
-                    prefix, local_name = tag_name.split(":", 1)
+                    prefix, _ = tag_name.split(":", 1)
                     namespace = attributes.get(f"xmlns:{prefix}")
 
                 yield StartElement(tag_name, attributes, line, column, namespace)
@@ -1641,7 +1639,6 @@ def _handle_incomplete_tag(
     incomplete_match = PATTERNS["incomplete_tag"].match(text, pos)
     if incomplete_match:
         tag_name = incomplete_match.group(1)
-        incomplete_match.group(2)
 
         if recovery_strategy in [RecoveryStrategy.LENIENT, RecoveryStrategy.AGGRESSIVE]:
             # Try to recover by adding missing >

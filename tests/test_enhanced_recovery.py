@@ -44,8 +44,6 @@ def test_advanced_recovery():
     )
     assert len(events) > 0
 
-    # Check for error events if available
-    [e for e in events if hasattr(e, "error_type")]
     # Some parsers may not emit error events, that's OK
 
     # Should at least get some element events
@@ -109,7 +107,6 @@ def test_recovery_strategies():
                 repair_attributes=True,
             )
         )
-        sum(1 for e in events if hasattr(e, "error_type"))
         element_count = sum(
             1 for e in events if type(e).__name__ in ["StartElement", "EndElement"]
         )
