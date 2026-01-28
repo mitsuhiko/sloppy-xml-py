@@ -95,7 +95,7 @@ Returns an `xml.etree.ElementTree.Element` root node.
 ## Installation
 
 ```bash
-uv add sloppy-xml-py
+uv add sloppy-xml
 ```
 
 ## Development
