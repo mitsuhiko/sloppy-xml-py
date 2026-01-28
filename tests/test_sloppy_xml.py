@@ -172,6 +172,26 @@ def test_position_tracking():
     assert child_events[0].line == 2
 
 
+def test_position_tracking_other_events():
+    """Test line tracking for comments, PIs, and CDATA."""
+    xml = """<root>
+<!--comment-->
+<?pi data?>
+<![CDATA[cdata]]>
+</root>"""
+    events = list(sloppy_xml.stream_parse(xml))
+
+    comment_event = [e for e in events if isinstance(e, Comment)][0]
+    pi_event = [e for e in events if isinstance(e, ProcessingInstruction)][0]
+    cdata_event = [
+        e for e in events if isinstance(e, Text) and e.is_cdata
+    ][0]
+
+    assert comment_event.line == 2
+    assert pi_event.line == 3
+    assert cdata_event.line == 4
+
+
 def test_self_closing_tag_multiline_position():
     """Test that EndElement for multi-line self-closing tags reports correct position."""
     xml = """<strong>Name <t
@@ -470,6 +490,17 @@ def test_malformed_numeric_entities():
     assert len(text_events) > 0
 
 
+def test_broken_entities_recovery():
+    """Test recovery for entities missing semicolons."""
+    xml = "<root>Text &broken entity</root>"
+    events = list(
+        sloppy_xml.stream_parse(xml, recovery_strategy=RecoveryStrategy.LENIENT)
+    )
+
+    text_event = [e for e in events if isinstance(e, Text)][0]
+    assert "&broken;" in text_event.content
+
+
 def test_entity_resolution_in_attributes():
     """Test that entities are resolved in attribute values."""
     # Test the specific bug case reported
@@ -652,6 +683,18 @@ def test_unclosed_tags():
     assert tree is not None
 
 
+def test_auto_closed_flags_for_unclosed_tags():
+    """Test auto_closed flags for inferred end tags."""
+    xml = "<root><child>text"
+    events = list(sloppy_xml.stream_parse(xml, recover=True, auto_close_tags=True))
+
+    end_events = [e for e in events if isinstance(e, EndElement)]
+    auto_closed = [e for e in end_events if e.auto_closed]
+
+    assert any(event.name == "child" for event in auto_closed)
+    assert any(event.name == "root" for event in auto_closed)
+
+
 def test_mismatched_tags():
     """Test recovery from mismatched tags."""
     xml = "<root><child></different></root>"
@@ -663,6 +706,17 @@ def test_mismatched_tags():
     # Should still be able to build a tree
     tree = sloppy_xml.tree_parse(xml, recover=True, emit_errors=True)
     assert tree is not None
+
+
+def test_auto_closed_flags_for_mismatched_tags():
+    """Test auto-closed tags when mismatched end tags appear."""
+    xml = "<root><child></root>"
+    events = list(sloppy_xml.stream_parse(xml, recover=True, emit_errors=True))
+
+    auto_closed = [
+        e for e in events if isinstance(e, EndElement) and e.auto_closed
+    ]
+    assert any(event.name == "child" for event in auto_closed)
 
 
 def test_malformed_attributes():
@@ -880,6 +934,30 @@ def test_namespace_disabled():
     assert any(e.name == "ns:root" for e in start_events)
 
 
+def test_namespace_attribute_resolution():
+    """Test namespace attribute handling for prefixed tags."""
+    xml = (
+        '<ns:root xmlns:ns="http://example.com"><ns:child /></ns:root>'
+    )
+    events = list(sloppy_xml.stream_parse(xml, namespace_aware=True))
+
+    root_event = [
+        e for e in events if isinstance(e, StartElement) and e.name == "ns:root"
+    ][0]
+    child_event = [
+        e for e in events if isinstance(e, StartElement) and e.name == "ns:child"
+    ][0]
+
+    assert root_event.namespace == "http://example.com"
+    assert child_event.namespace is None
+
+    events = list(sloppy_xml.stream_parse(xml, namespace_aware=False))
+    root_event = [
+        e for e in events if isinstance(e, StartElement) and e.name == "ns:root"
+    ][0]
+    assert root_event.namespace is None
+
+
 def test_large_document_performance():
     """Test performance with large documents."""
     # Create a moderately large XML document
@@ -1079,6 +1157,22 @@ def test_encoding_issues():
     assert tree is not None
 
 
+def test_encoding_fix_toggle():
+    """Test fix_encoding toggles character normalization."""
+    xml_with_issues = '<root>Text—with “quotes”</root>'
+
+    events = list(sloppy_xml.stream_parse(xml_with_issues, fix_encoding=False))
+    text_event = [e for e in events if isinstance(e, Text)][0]
+    assert "—" in text_event.content
+    assert "“" in text_event.content
+    assert "”" in text_event.content
+
+    events = list(sloppy_xml.stream_parse(xml_with_issues, fix_encoding=True))
+    text_event = [e for e in events if isinstance(e, Text)][0]
+    assert "--" in text_event.content
+    assert '"' in text_event.content
+
+
 def test_fragment_parsing():
     """Test parsing XML fragments."""
     fragments = [
@@ -1099,6 +1193,15 @@ def test_fragment_parsing():
         except ValueError:
             # Some fragments might not produce valid trees, that's ok
             pass
+
+
+def test_fragment_text_synthetic_root():
+    """Test synthetic root for text-only fragments."""
+    fragment = "Just text content"
+    tree = sloppy_xml.tree_parse(fragment, allow_fragments=True)
+
+    assert tree.tag == "fragment"
+    assert len(tree) == 0
 
 
 def test_full_pipeline_wellformed():
