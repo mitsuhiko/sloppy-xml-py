@@ -998,8 +998,13 @@ def stream_parse(
                 if not self_closing:
                     tag_stack.append(tag_name)
                 else:
+                    # Calculate the actual position of the closing "/>" for self-closing tags
+                    end_pos = start_tag_match.end()
+                    end_line, end_column = _update_position(
+                        text, start_tag_match.start(), end_pos, line, column
+                    )
                     # Emit matching end element for self-closing tag
-                    yield EndElement(tag_name, line, column, auto_closed=False)
+                    yield EndElement(tag_name, end_line, end_column, auto_closed=False)
 
                 pos = start_tag_match.end()
                 line, column = _update_position(
