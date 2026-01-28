@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.3.1
 
 - Fixed position tracking for self-closing tags that span multiple lines.  #5
 
